@@ -1,4 +1,6 @@
 import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // <-- Adicionamos esta linha
 
 const firebaseConfig = {
   apiKey: "AIzaSyDfpG9iftVfznj34eQaPKnRfipOpnVumuE",
@@ -11,5 +13,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app); // <-- Inicializamos o banco de dados
 
-export { app };
+export { app, auth, db }; // <-- Exportamos o db para usar nas telas
