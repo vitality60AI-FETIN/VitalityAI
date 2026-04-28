@@ -5,13 +5,13 @@ O **Vitalidade Senior AI** é um ecossistema digital desenhado exclusivamente pa
 
 ---
 
-## ✨ Funcionalidades Principais (MVP)
+## ✨ Funcionalidades Principais 
 * **🧠 IA Adaptativa:** Mentor 24/7 que estrutura planos alimentares e rotinas de exercícios.
 * **🏠 Digital Caregiver:** Guia diário com lembretes de hidratação e alongamentos.
 * **🚨 Dead Man's Switch:** Sistema de segurança que alerta contatos de emergência após inatividade prolongada.
 * **💬 Tom de Voz Empático:** Comunicação carinhosa e encorajadora via IA.
 
-## 🚀 O Diferencial (The Killer Feature)
+## 🚀 O Diferencial 
 Diferente de rotinas estáticas, nossa **Hiper-personalização Contextual** adapta as sugestões em tempo real:
 * **Adaptação Clínica:** Filtra exercícios com base em dores ou limitações cadastradas.
 * **Adaptação Climática:** Sugere atividades indoor ou treinos mentais em dias de chuva.
@@ -34,13 +34,3 @@ git clone [https://github.com/vitality60AI-FETIN/VitalityAI.git](https://github.
 cd VitalityAI
 npm install
 npm run dev
-
-### 3. Como salvar corretamente:
-1.  Cole o código acima na aba **"Edit"**.
-2.  Clique no botão verde **"Commit changes..."** no canto superior direito.
-3.  Na janelinha que abrir, clique em **"Commit changes"** de novo.
-
-**O resultado final:**
-Quando você voltar para a página inicial do seu repositório `VitalityAI`, o GitHub vai esconder os códigos e mostrar os títulos grandes, os ícones e o texto em negrito bonitão.
-
-Se ainda aparecer os asteriscos, me manda um print da **página inicial do repositório** para eu ver o nome do arquivo!
