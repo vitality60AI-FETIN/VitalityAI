@@ -1,36 +1,26 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌿 Vitalidade Senior AI
+> **Projeto FETIN - INATEL** | Longevidade na Palma da Mão através de IA Adaptativa.
 
-## Getting Started
+O **Vitalidade Senior AI** é um ecossistema digital desenhado exclusivamente para atender às necessidades biomecânicas e nutricionais de pessoas com 60 anos ou mais. Nosso foco é promover a longevidade ativa, combatendo o sedentarismo e a sarcopenia através de um acompanhamento ultra-personalizado.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🛠️ Arquitetura e Tecnologia
+O projeto foi concebido como um **PWA (Progressive Web App)** para garantir acessibilidade, permitindo a instalação direta no celular sem as barreiras das lojas de aplicativos.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* **Front-End:** Interface com fontes amplas e botões de alto contraste para máxima inclusão.
+* **Backend-as-a-Service (BaaS):** Firebase/Supabase para gestão ágil de dados e segurança.
+* **Engine de IA:** Integração via API (Gemini) para processamento de rotinas personalizadas.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ✨ Funcionalidades Principais (MVP)
+* **Digital Caregiver:** Guia diário para tarefas de bem-estar físico e mental.
+* **Dead Man's Switch:** Sistema de segurança que alerta contatos de emergência após inatividade prolongada.
+* **Tom de Voz Empático:** Comunicação carinhosa e encorajadora via IA, simulando companhia real.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🚀 O Diferencial (The Killer Feature)
+Diferente de rotinas estáticas, nossa **Hiper-personalização Contextual** adapta as sugestões em tempo real:
+* **Adaptação Clínica:** Filtra exercícios com base em dores ou limitações cadastradas.
+* **Adaptação Climática:** Sugere atividades indoor ou treinos mentais em dias de chuva ou frio.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+Desenvolvido para transformar dados em rotina e promover a autonomia na melhor idade.
