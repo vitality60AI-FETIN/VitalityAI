@@ -6,6 +6,7 @@ import { Users, AlertTriangle, CheckCircle2, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 
 import { auth, db } from "../../lib/firebase";
+import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 
@@ -27,7 +28,8 @@ export default function DashboardLobby() {
   const [patientFilter, setPatientFilter] = useState('');
 
   const router = useRouter();
-  const pathname = usePathname(); // <-- Pega a rota atual para destacar o menu ativo
+  const pathname = usePathname();
+  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -38,8 +40,22 @@ export default function DashboardLobby() {
 
       setUserName(user.email?.split("@")[0] || "Cuidador");
 
-      // realtime pacientes
-      const qPacientes = query(collection(db, "Pacientes"), where("cuidadorId", "==", user.uid));
+      // Ainda carregando instituicaoId
+      if (loadingInstituicao) {
+        return;
+      }
+
+      // Novo usuário que ainda não completou onboarding
+      if (!instituicaoId) {
+        router.push("/onboarding");
+        return;
+      }
+
+      // realtime pacientes (filtrado por instituição)
+      const qPacientes = query(
+        collection(db, "Pacientes"),
+        where("instituicaoId", "==", instituicaoId)
+      );
       const unsubPacientes = onSnapshot(qPacientes, (snap) => {
         const lista: Paciente[] = [];
         snap.forEach((d) => lista.push({ id: d.id, ...(d.data() as any) } as Paciente));
@@ -50,8 +66,11 @@ export default function DashboardLobby() {
         setLoading(false);
       });
 
-      // realtime logs do cuidador
-      const qLogs = query(collection(db, "LogsRotina"), where("cuidadorId", "==", user.uid));
+      // realtime logs da instituição (filtrado por instituicao)
+      const qLogs = query(
+        collection(db, "LogsRotina"),
+        where("instituicaoId", "==", instituicaoId)
+      );
       const unsubLogs = onSnapshot(qLogs, (snap) => {
         const lista: any[] = [];
         snap.forEach((d) => lista.push({ id: d.id, ...(d.data() as any) }));
@@ -85,7 +104,7 @@ export default function DashboardLobby() {
         console.warn('Erro ao limpar listeners', e);
       }
     };
-  }, [router]);
+  }, [router, instituicaoId, loadingInstituicao]);
 
   const handleLogout = async () => {
     await signOut(auth);

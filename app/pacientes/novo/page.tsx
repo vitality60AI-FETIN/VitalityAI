@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../lib/firebase";
+import { useInstitucaoId } from "../../../lib/hooks";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -10,6 +11,7 @@ export default function NovoPaciente() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
 
   // Estados do Formulário (Agora todos terão seus devidos inputs)
   const [form, setForm] = useState({
@@ -27,10 +29,24 @@ export default function NovoPaciente() {
   // Proteção de Rota
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) router.push("/login");
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      // Ainda carregando instituicaoId
+      if (loadingInstituicao) {
+        return;
+      }
+
+      // Novo usuário que ainda não completou onboarding
+      if (!instituicaoId) {
+        router.push("/onboarding");
+        return;
+      }
     });
     return () => unsubscribe();
-  }, [router]);
+  }, [router, instituicaoId, loadingInstituicao]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,12 +54,17 @@ export default function NovoPaciente() {
     setError("");
 
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user || !instituicaoId) {
+      setError("Dados incompletos. Tente novamente.");
+      setLoading(false);
+      return;
+    }
 
     try {
       await addDoc(collection(db, "Pacientes"), {
         ...form,
         cuidadorId: user.uid,
+        instituicaoId: instituicaoId, // ← MULTI-TENANCY!
         statusSeguranca: "Verde",
         criadoEm: serverTimestamp()
       });

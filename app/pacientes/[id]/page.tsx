@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, usePathname } from "next/navigation";
 import { ArrowLeft, Activity, AlertTriangle, CheckCircle2, HeartPulse, Phone, User, Users, LogOut, Droplets, History, Pill, UtensilsCrossed } from "lucide-react";
 import { auth, db } from "../../../lib/firebase";
+import { useInstitucaoId } from "../../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, updateDoc } from "firebase/firestore";
 
 interface PacienteDetail {
   nome: string;
@@ -75,6 +76,7 @@ export default function ProntuarioDigitalPage() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams();
+  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
   const pacienteId = useMemo(() => {
     const rawId = params?.id;
     return Array.isArray(rawId) ? rawId[0] : rawId;
@@ -89,8 +91,19 @@ export default function ProntuarioDigitalPage() {
 
       setUserName(user.email?.split("@")[0] || "Cuidador");
 
+      // Ainda carregando instituicaoId
+      if (loadingInstituicao) {
+        return;
+      }
+
+      // Novo usuário que ainda não completou onboarding
+      if (!instituicaoId) {
+        router.push("/onboarding");
+        return;
+      }
+
       if (!pacienteId) {
-        setError("Paciente inválido ou não encontrado na URL.");
+        setError("Paciente não especificado.");
         setLoading(false);
         return;
       }
@@ -102,10 +115,53 @@ export default function ProntuarioDigitalPage() {
           setPaciente(null);
           setError("Paciente não encontrado na base de dados.");
         } else {
-          setPaciente(snapshot.data() as PacienteDetail);
+          const pacienteData = snapshot.data() as PacienteDetail;
+          
+          // Validar se o paciente pertence à instituição do usuário
+          const pacienteInst = (pacienteData as any).instituicaoId;
+          if (pacienteInst !== instituicaoId) {
+            // Tentar inferir instituição a partir do cuidador do paciente (caso paciente antigo sem campo)
+            const cuidadorId = (pacienteData as any).cuidadorId;
+            if (cuidadorId) {
+              try {
+                const cuidadorSnap = await getDoc(doc(db, "Cuidadores", cuidadorId));
+                if (cuidadorSnap.exists() && (cuidadorSnap.data() as any).instituicaoId === instituicaoId) {
+                  // Aceitar acesso e atualizar paciente para persistir instituicaoId
+                  try {
+                    await updateDoc(doc(db, "Pacientes", pacienteId), { instituicaoId: instituicaoId });
+                  } catch (updErr) {
+                    console.warn("Falha ao atualizar paciente com instituicaoId (não crítico):", updErr);
+                  }
+                  setPaciente(pacienteData);
+                } else {
+                  setError("Acesso negado: você não tem permissão para visualizar este paciente.");
+                  setLoading(false);
+                  return;
+                }
+              } catch (infErr) {
+                console.error("Erro ao inferir instituição do cuidador:", infErr);
+                setError("Acesso negado: você não tem permissão para visualizar este paciente.");
+                setLoading(false);
+                return;
+              }
+            } else {
+              setError("Acesso negado: você não tem permissão para visualizar este paciente.");
+              setLoading(false);
+              return;
+            }
+          } else {
+            setPaciente(pacienteData);
+          }
           setError("");
 
-          const logsSnapshot = await getDocs(query(collection(db, "LogsRotina"), where("pacienteId", "==", pacienteId)));
+          // Buscar logs filtrados por instituição
+          const logsSnapshot = await getDocs(
+            query(
+              collection(db, "LogsRotina"),
+              where("pacienteId", "==", pacienteId),
+              where("instituicaoId", "==", instituicaoId)
+            )
+          );
           const listaLogs: LogRotina[] = [];
 
           logsSnapshot.forEach((logDoc) => {
@@ -129,7 +185,7 @@ export default function ProntuarioDigitalPage() {
     });
 
     return () => unsubscribe();
-  }, [pacienteId, router]);
+  }, [pacienteId, instituicaoId, router, loadingInstituicao]);
 
   const handleLogout = async () => {
     await signOut(auth);

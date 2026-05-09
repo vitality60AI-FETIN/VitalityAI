@@ -15,6 +15,7 @@ import {
   Waves,
 } from "lucide-react";
 import { auth, db } from "../../lib/firebase";
+import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 
@@ -51,34 +52,52 @@ export default function LogRotinaPage() {
 
   const router = useRouter();
   const pathname = usePathname();
+  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUserName(user.email?.split("@")[0] || "Cuidador");
-        try {
-          const q = query(collection(db, "Pacientes"), where("cuidadorId", "==", user.uid));
-          const querySnapshot = await getDocs(q);
-          const listaPacientes: Paciente[] = [];
-
-          querySnapshot.forEach((doc) => {
-            listaPacientes.push({ id: doc.id, ...doc.data() } as Paciente);
-          });
-
-          setPacientes(listaPacientes);
-        } catch (error) {
-          console.error("Erro ao buscar pacientes:", error);
-          setToast({ message: "Não foi possível carregar os residentes.", variant: "error" });
-        } finally {
-          setLoading(false);
-        }
-      } else {
+      if (!user) {
         router.push("/login");
+        return;
+      }
+
+      setUserName(user.email?.split("@")[0] || "Cuidador");
+      
+      // Ainda carregando instituicaoId
+      if (loadingInstituicao) {
+        return;
+      }
+
+      // Novo usuário que ainda não completou onboarding
+      if (!instituicaoId) {
+        router.push("/onboarding");
+        return;
+      }
+
+      try {
+        // Mostrar pacientes da instituição (não apenas os do cuidador)
+        const q = query(
+          collection(db, "Pacientes"),
+          where("instituicaoId", "==", instituicaoId)
+        );
+        const querySnapshot = await getDocs(q);
+        const listaPacientes: Paciente[] = [];
+
+        querySnapshot.forEach((doc) => {
+          listaPacientes.push({ id: doc.id, ...doc.data() } as Paciente);
+        });
+
+        setPacientes(listaPacientes);
+      } catch (error) {
+        console.error("Erro ao buscar pacientes:", error);
+        setToast({ message: "Não foi possível carregar os residentes.", variant: "error" });
+      } finally {
+        setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [router, instituicaoId, loadingInstituicao]);
 
   useEffect(() => {
     if (!toast) return;
@@ -127,6 +146,11 @@ export default function LogRotinaPage() {
         return;
       }
 
+      if (!instituicaoId) {
+        setToast({ message: "Instituição não encontrada.", variant: "error" });
+        return;
+      }
+
       const draft = obterDraft(pacienteId);
       const detalhe = tipoRotina === "alimentacao" ? draft.refeicao : tipoRotina === "medicacao" ? draft.medicacao : draft.hidratacao;
       const resumo = detalhe ? `${valor} - ${detalhe}` : valor;
@@ -134,6 +158,7 @@ export default function LogRotinaPage() {
       await addDoc(collection(db, "LogsRotina"), {
         pacienteId,
         cuidadorId: usuarioAtual.uid,
+        instituicaoId: instituicaoId, // ← MULTI-TENANCY!
         dataHora: serverTimestamp(),
         tipo: tipoRotina,
         status: valor,

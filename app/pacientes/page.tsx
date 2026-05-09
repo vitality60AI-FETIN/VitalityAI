@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Search, LogOut, FileText } from "lucide-react";
 import { auth, db } from "../../lib/firebase";
+import { useInstitucaoId, useCuidadorData } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 
@@ -22,36 +23,52 @@ export default function ProntuariosPage() {
 
   const router = useRouter();
   const pathname = usePathname();
+  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
+  const { cuidador, loading: loadingCuidador } = useCuidadorData();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUserName(user.email?.split("@")[0] || "Cuidador");
-        try {
-          const q = query(
-            collection(db, "Pacientes"),
-            where("cuidadorId", "==", user.uid)
-          );
-          const querySnapshot = await getDocs(q);
-          const listaPacientes: Paciente[] = [];
-
-          querySnapshot.forEach((doc) => {
-            listaPacientes.push({ id: doc.id, ...doc.data() } as Paciente);
-          });
-
-          setPacientes(listaPacientes);
-        } catch (error) {
-          console.error("Erro ao buscar pacientes:", error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
+      if (!user) {
         router.push("/login");
+        return;
+      }
+
+      setUserName(user.email?.split("@")[0] || "Cuidador");
+      
+      // Ainda carregando instituicaoId ou dados do cuidador
+      if (loadingInstituicao || loadingCuidador) {
+        return;
+      }
+
+      // Novo usuário que ainda não completou onboarding
+      if (!instituicaoId) {
+        router.push("/onboarding");
+        return;
+      }
+
+      try {
+        // Mostrar todos os pacientes da instituição (mesmo comportamento do dashboard/rotina)
+        const q = query(
+          collection(db, "Pacientes"),
+          where("instituicaoId", "==", instituicaoId)
+        );
+        const querySnapshot = await getDocs(q);
+        const listaPacientes: Paciente[] = [];
+
+        querySnapshot.forEach((doc) => {
+          listaPacientes.push({ id: doc.id, ...doc.data() } as Paciente);
+        });
+
+        setPacientes(listaPacientes);
+      } catch (error) {
+        console.error("Erro ao buscar pacientes:", error);
+      } finally {
+        setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [router, instituicaoId, loadingInstituicao]);
 
   const handleLogout = async () => {
     await signOut(auth);
