@@ -6,9 +6,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   Droplets,
+  History,
   LogOut,
   Pill,
   Sparkles,
+  StickyNote,
   UtensilsCrossed,
   Waves,
 } from "lucide-react";
@@ -29,11 +31,20 @@ type FeedbackState = {
   valor: string;
 } | null;
 
+type LogDraft = {
+  hidratacao: string;
+  alimentacao: string;
+  refeicao: string;
+  medicacao: string;
+  observacao: string;
+};
+
 export default function LogRotinaPage() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("Cuidador");
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [feedback, setFeedback] = useState<FeedbackState>(null);
+  const [drafts, setDrafts] = useState<Record<string, LogDraft>>({});
   const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(null);
 
   const router = useRouter();
@@ -86,6 +97,25 @@ export default function LogRotinaPage() {
     router.push("/pacientes/novo");
   };
 
+  const obterDraft = (pacienteId: string) =>
+    drafts[pacienteId] ?? {
+      hidratacao: "",
+      alimentacao: "",
+      refeicao: "",
+      medicacao: "",
+      observacao: "",
+    };
+
+  const atualizarDraft = (pacienteId: string, campo: keyof LogDraft, valor: string) => {
+    setDrafts((current) => ({
+      ...current,
+      [pacienteId]: {
+        ...obterDraft(pacienteId),
+        [campo]: valor,
+      },
+    }));
+  };
+
   const registrarLog = async (pacienteId: string, tipoRotina: string, valor: string) => {
     try {
       const usuarioAtual = auth.currentUser;
@@ -95,15 +125,32 @@ export default function LogRotinaPage() {
         return;
       }
 
+      const draft = obterDraft(pacienteId);
+      const detalhe = tipoRotina === "alimentacao" ? draft.refeicao : tipoRotina === "medicacao" ? draft.medicacao : draft.hidratacao;
+      const resumo = detalhe ? `${valor} - ${detalhe}` : valor;
+
       await addDoc(collection(db, "LogsRotina"), {
         pacienteId,
         cuidadorId: usuarioAtual.uid,
         dataHora: serverTimestamp(),
         tipo: tipoRotina,
         status: valor,
+        resumo,
+        detalhe,
+        observacao: draft.observacao,
       });
 
       setFeedback({ pacienteId, tipoRotina, valor });
+      setDrafts((current) => ({
+        ...current,
+        [pacienteId]: {
+          hidratacao: "",
+          alimentacao: "",
+          refeicao: "",
+          medicacao: "",
+          observacao: "",
+        },
+      }));
       setToast({ message: "Registro salvo com sucesso.", variant: "success" });
     } catch (error) {
       console.error("Erro ao registrar log:", error);
@@ -227,14 +274,26 @@ export default function LogRotinaPage() {
         </nav>
 
         <main className="mx-auto w-full max-w-7xl px-6 py-10">
-          <header className="mb-10 flex items-end justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <header className="mb-10 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
                 <Sparkles className="h-3.5 w-3.5" />
-                Log Diário
+                Registro Assistencial
               </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">Log Diário</h1>
-              <p className="mt-2 text-lg text-slate-500">Check-in rápido de atividades dos residentes</p>
+              <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">Log de Rotina</h1>
+              <p className="mt-2 max-w-2xl text-lg text-slate-500">
+                Registre alimentação, hidratação e medicação em poucos toques, com contexto suficiente para o prontuário virar um histórico real de cuidado.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-blue-100 bg-blue-50/70 px-5 py-4 text-sm text-blue-800 shadow-sm">
+              <div className="flex items-center gap-2 font-black">
+                <History className="h-4 w-4" />
+                Fluxo rápido
+              </div>
+              <p className="mt-2 max-w-sm leading-6 text-blue-700">
+                Marque o estado, detalhe o que foi consumido e adicione uma observação opcional se houver algo relevante.
+              </p>
             </div>
 
             <button
@@ -256,6 +315,7 @@ export default function LogRotinaPage() {
           ) : (
             <div className="space-y-6">
               {pacientes.map((paciente) => {
+                const draft = obterDraft(paciente.id);
                 const hidratacaoAtual = feedback?.pacienteId === paciente.id && feedback.tipoRotina === "hidratacao" ? feedback.valor : null;
                 const alimentacaoAtual = feedback?.pacienteId === paciente.id && feedback.tipoRotina === "alimentacao" ? feedback.valor : null;
                 const medicacaoAtual = feedback?.pacienteId === paciente.id && feedback.tipoRotina === "medicacao" ? feedback.valor : null;
@@ -300,7 +360,7 @@ export default function LogRotinaPage() {
                           </div>
                           <div>
                             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Hidratação</h3>
-                            <p className="text-sm text-slate-500">Selecione o nível rapidamente</p>
+                            <p className="text-sm text-slate-500">Quanto bebeu hoje?</p>
                           </div>
                         </div>
 
@@ -318,6 +378,19 @@ export default function LogRotinaPage() {
                             );
                           })}
                         </div>
+
+                        <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                          <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                            <StickyNote className="h-3.5 w-3.5" />
+                            Detalhe rápido
+                          </label>
+                          <input
+                            value={draft.hidratacao}
+                            onChange={(e) => atualizarDraft(paciente.id, "hidratacao", e.target.value)}
+                            placeholder="Ex: 2 copos, água com gelatina, soro..."
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
+                          />
+                        </div>
                       </div>
 
                       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -327,7 +400,7 @@ export default function LogRotinaPage() {
                           </div>
                           <div>
                             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Alimentação</h3>
-                            <p className="text-sm text-slate-500">Toque para marcar a refeição</p>
+                            <p className="text-sm text-slate-500">Comeu? O que foi consumido?</p>
                           </div>
                         </div>
 
@@ -345,6 +418,19 @@ export default function LogRotinaPage() {
                             );
                           })}
                         </div>
+
+                        <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                          <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                            <StickyNote className="h-3.5 w-3.5" />
+                            O que comeu?
+                          </label>
+                          <input
+                            value={draft.refeicao}
+                            onChange={(e) => atualizarDraft(paciente.id, "refeicao", e.target.value)}
+                            placeholder="Ex: arroz, feijão, frango, sopa, fruta..."
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
+                          />
+                        </div>
                       </div>
 
                       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -354,8 +440,21 @@ export default function LogRotinaPage() {
                           </div>
                           <div>
                             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Medicação Crítica</h3>
-                            <p className="text-sm text-slate-500">Ação única para a medicação</p>
+                            <p className="text-sm text-slate-500">Nomeie o medicamento administrado</p>
                           </div>
+                        </div>
+
+                        <div className="mb-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                          <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                            <StickyNote className="h-3.5 w-3.5" />
+                            Medicação
+                          </label>
+                          <input
+                            value={draft.medicacao}
+                            onChange={(e) => atualizarDraft(paciente.id, "medicacao", e.target.value)}
+                            placeholder="Ex: Losartana 50mg, Dipirona..."
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
+                          />
                         </div>
 
                         <button
@@ -366,6 +465,23 @@ export default function LogRotinaPage() {
                           Medicação Administrada
                         </button>
                       </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 bg-white px-6 pb-6 pt-4">
+                      <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                        <StickyNote className="h-3.5 w-3.5" />
+                        Observação do turno
+                      </label>
+                      <textarea
+                        value={draft.observacao}
+                        onChange={(e) => atualizarDraft(paciente.id, "observacao", e.target.value)}
+                        rows={2}
+                        placeholder="Ex: aceitou bem a refeição, precisou de auxílio, recusou líquido, sonolento..."
+                        className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
+                      />
+                      <p className="mt-2 text-xs text-slate-400">
+                        A observação fica anexada ao log e ajuda no histórico do prontuário.
+                      </p>
                     </div>
                   </article>
                 );

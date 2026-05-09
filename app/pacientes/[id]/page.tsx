@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, usePathname } from "next/navigation";
-import { ArrowLeft, Activity, AlertTriangle, CheckCircle2, HeartPulse, Phone, User, Users, LogOut } from "lucide-react";
+import { ArrowLeft, Activity, AlertTriangle, CheckCircle2, HeartPulse, Phone, User, Users, LogOut, Droplets, History, Pill, UtensilsCrossed } from "lucide-react";
 import { auth, db } from "../../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 
 interface PacienteDetail {
   nome: string;
@@ -18,6 +18,17 @@ interface PacienteDetail {
   objetivo: string;
   contatoEmergencia: string;
   statusSeguranca: string;
+  criadoEm?: unknown;
+}
+
+interface LogRotina {
+  id: string;
+  tipo: string;
+  status: string;
+  resumo?: string;
+  detalhe?: string;
+  observacao?: string;
+  dataHora?: { toDate?: () => Date };
 }
 
 function getStatusClasses(status: string) {
@@ -59,6 +70,7 @@ export default function ProntuarioDigitalPage() {
   const [error, setError] = useState("");
   const [userName, setUserName] = useState("Cuidador");
   const [paciente, setPaciente] = useState<PacienteDetail | null>(null);
+  const [logs, setLogs] = useState<LogRotina[]>([]);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -92,6 +104,21 @@ export default function ProntuarioDigitalPage() {
         } else {
           setPaciente(snapshot.data() as PacienteDetail);
           setError("");
+
+          const logsSnapshot = await getDocs(query(collection(db, "LogsRotina"), where("pacienteId", "==", pacienteId)));
+          const listaLogs: LogRotina[] = [];
+
+          logsSnapshot.forEach((logDoc) => {
+            listaLogs.push({ id: logDoc.id, ...logDoc.data() } as LogRotina);
+          });
+
+          listaLogs.sort((a, b) => {
+            const timeA = a.dataHora && typeof a.dataHora.toDate === "function" ? a.dataHora.toDate().getTime() : 0;
+            const timeB = b.dataHora && typeof b.dataHora.toDate === "function" ? b.dataHora.toDate().getTime() : 0;
+            return timeB - timeA;
+          });
+
+          setLogs(listaLogs);
         }
       } catch (fetchError) {
         console.error("Erro ao buscar paciente:", fetchError);
@@ -117,6 +144,26 @@ export default function ProntuarioDigitalPage() {
   ];
 
   const isLoadingOrError = loading || Boolean(error && !paciente);
+
+  const formatarData = (valor?: { toDate?: () => Date }) => {
+    if (!valor || typeof valor.toDate !== "function") return "Sem data";
+
+    return valor.toDate().toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatarCriacao = (valor?: unknown) => {
+    if (!valor || typeof valor !== "object") return "Data não informada";
+
+    const possivelTimestamp = valor as { toDate?: () => Date };
+    if (typeof possivelTimestamp.toDate !== "function") return "Data não informada";
+
+    return possivelTimestamp.toDate().toLocaleDateString("pt-BR");
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
@@ -298,9 +345,47 @@ export default function ProntuarioDigitalPage() {
                     <MiniLine label="Status" value={paciente.statusSeguranca || "Sem status"} />
                     <MiniLine label="Paciente" value={paciente.nome} />
                     <MiniLine label="Documento" value={pacienteId || "-"} />
+                    <MiniLine label="Cadastro" value={formatarCriacao(paciente.criadoEm)} />
                   </div>
                 </DetailCard>
               </section>
+
+                  <section>
+                    <DetailCard title="Linha do Tempo Assistencial" icon={<History className="h-5 w-5" />}>
+                      {logs.length === 0 ? (
+                        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+                          Nenhum log de rotina registrado ainda para este residente.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {logs.map((log) => {
+                            const isHidratacao = log.tipo === "hidratacao";
+                            const isAlimentacao = log.tipo === "alimentacao";
+
+                            return (
+                              <article key={log.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                  <div>
+                                    <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-slate-500">
+                                      {isHidratacao ? <Droplets className="h-4 w-4 text-sky-600" /> : isAlimentacao ? <UtensilsCrossed className="h-4 w-4 text-amber-600" /> : <Pill className="h-4 w-4 text-emerald-600" />}
+                                      {isHidratacao ? "Hidratação" : isAlimentacao ? "Alimentação" : "Medicação"}
+                                    </div>
+                                    <p className="mt-2 text-base font-bold text-slate-900">{log.resumo || log.status}</p>
+                                    {log.detalhe ? <p className="mt-1 text-sm text-slate-600">Detalhe: {log.detalhe}</p> : null}
+                                    {log.observacao ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacao}</p> : null}
+                                  </div>
+
+                                  <div className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-slate-500 shadow-sm">
+                                    {formatarData(log.dataHora)}
+                                  </div>
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </DetailCard>
+                  </section>
             </div>
           ) : null}
         </main>
