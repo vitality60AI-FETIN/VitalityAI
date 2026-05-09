@@ -7,7 +7,7 @@ import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tool
 
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 
 interface Paciente {
   id: string;
@@ -20,38 +20,71 @@ export default function DashboardLobby() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("Cuidador");
   const [pacientes, setPacientes] = useState<Paciente[]>([]); 
+  const [logs, setLogs] = useState<any[]>([]);
+  const [incidentesHoje, setIncidentesHoje] = useState(0);
+  const [timeRange, setTimeRange] = useState<'24h' | '7d'>('24h');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'alimentacao' | 'hidratacao' | 'medicacao'>('all');
+  const [patientFilter, setPatientFilter] = useState('');
 
   const router = useRouter();
   const pathname = usePathname(); // <-- Pega a rota atual para destacar o menu ativo
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUserName(user.email?.split("@")[0] || "Cuidador");
-        try {
-          const q = query(
-            collection(db, "Pacientes"), 
-            where("cuidadorId", "==", user.uid)
-          );
-          const querySnapshot = await getDocs(q);
-          const listaPacientes: Paciente[] = [];
-          
-          querySnapshot.forEach((doc) => {
-            listaPacientes.push({ id: doc.id, ...doc.data() } as Paciente);
-          });
-          
-          setPacientes(listaPacientes);
-        } catch (error) {
-          console.error("Erro ao buscar pacientes:", error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) {
         router.push("/login");
+        return;
       }
+
+      setUserName(user.email?.split("@")[0] || "Cuidador");
+
+      // realtime pacientes
+      const qPacientes = query(collection(db, "Pacientes"), where("cuidadorId", "==", user.uid));
+      const unsubPacientes = onSnapshot(qPacientes, (snap) => {
+        const lista: Paciente[] = [];
+        snap.forEach((d) => lista.push({ id: d.id, ...(d.data() as any) } as Paciente));
+        setPacientes(lista);
+        setLoading(false);
+      }, (err) => {
+        console.error('Erro realtime pacientes', err);
+        setLoading(false);
+      });
+
+      // realtime logs do cuidador
+      const qLogs = query(collection(db, "LogsRotina"), where("cuidadorId", "==", user.uid));
+      const unsubLogs = onSnapshot(qLogs, (snap) => {
+        const lista: any[] = [];
+        snap.forEach((d) => lista.push({ id: d.id, ...(d.data() as any) }));
+        setLogs(lista);
+
+        // calcular incidentes das últimas 24h (exemplo simples)
+        const now = Date.now();
+        const dayMs = 24 * 60 * 60 * 1000;
+        const recentes = lista.filter((l) => {
+          const ts = l.dataHora && typeof l.dataHora.toDate === 'function' ? l.dataHora.toDate().getTime() : 0;
+          return now - ts <= dayMs;
+        });
+        setIncidentesHoje(recentes.length);
+      }, (err) => console.error('Erro realtime logs', err));
+
+      // ensure we cleanup realtime listeners when auth changes or component unmounts
+      // store unsubscribes on window (short-lived) and clear on sign-out / unmount
+      (unsubscribeAuth as any)._unsubPacientes = unsubPacientes;
+      (unsubscribeAuth as any)._unsubLogs = unsubLogs;
     });
-    
-    return () => unsubscribe();
+
+    return () => {
+      // call onAuth unsubscribe
+      try {
+        // unsubscribe auth
+        if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
+        // also try to cleanup nested unsubscribes
+        if ((unsubscribeAuth as any)?._unsubPacientes) (unsubscribeAuth as any)._unsubPacientes();
+        if ((unsubscribeAuth as any)?._unsubLogs) (unsubscribeAuth as any)._unsubLogs();
+      } catch (e) {
+        console.warn('Erro ao limpar listeners', e);
+      }
+    };
   }, [router]);
 
   const handleLogout = async () => {
@@ -63,17 +96,59 @@ export default function DashboardLobby() {
     router.push("/pacientes/novo"); 
   };
 
-  const dadosRiscoPopulacional = [
-    { dia: "Seg", incidentes: 2 },
-    { dia: "Ter", incidentes: 4 },
-    { dia: "Qua", incidentes: 3 },
-    { dia: "Qui", incidentes: 6 },
-    { dia: "Sex", incidentes: 5 },
-    { dia: "Sáb", incidentes: 2 },
-    { dia: "Dom", incidentes: 1 },
-  ];
+  // dados de risco serão calculados a partir dos logs em tempo real (substitui mocks)
 
   const pacientesAtencao = pacientes.filter((paciente) => paciente.statusSeguranca !== "Verde");
+
+  // Alertas transformados com pacienteNome
+  const recentAlerts = logs.map((l) => ({
+    ...l,
+    pacienteNome: pacientes.find((p) => p.id === l.pacienteId)?.nome || l.pacienteId,
+  }));
+
+  const isAlert = (l: any) => {
+    if (!l || !l.tipo) return false;
+    if (typeFilter !== 'all' && l.tipo !== typeFilter) return false;
+    if (l.tipo === 'alimentacao' && (l.status === 'Recusou' || l.status === 'Metade')) return true;
+    if (l.tipo === 'hidratacao' && l.status === 'Pouca') return true;
+    if (l.tipo === 'medicacao' && l.status && l.status !== 'Administrada') return true;
+    return false;
+  };
+
+  const filteredAlerts = recentAlerts.filter((a) => {
+    const ts = a.dataHora && typeof a.dataHora.toDate === 'function' ? a.dataHora.toDate().getTime() : 0;
+    if (!ts) return false;
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    if (timeRange === '24h' && now - ts > dayMs) return false;
+    if (timeRange === '7d' && now - ts > dayMs * 7) return false;
+    if (patientFilter && a.pacienteNome && !a.pacienteNome.toLowerCase().includes(patientFilter.toLowerCase())) return false;
+    return isAlert(a);
+  });
+
+  // agregação para gráfico de risco (últimos 7 dias)
+  const dadosRisco = (() => {
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+
+    return days.map((d) => {
+      const start = d.getTime();
+      const end = start + 24 * 60 * 60 * 1000;
+      const count = logs.filter((l) => {
+        const ts = l.dataHora && typeof l.dataHora.toDate === 'function' ? l.dataHora.toDate().getTime() : 0;
+        if (ts < start || ts >= end) return false;
+        if (l.tipo === 'alimentacao' && (l.status === 'Recusou' || l.status === 'Metade')) return true;
+        if (l.tipo === 'hidratacao' && l.status === 'Pouca') return true;
+        if (l.tipo === 'medicacao' && l.status && l.status !== 'Administrada') return true;
+        return false;
+      }).length;
+      return { dia: d.toLocaleDateString('pt-BR', { weekday: 'short' }), incidentes: count };
+    });
+  })();
 
   if (loading) {
     return (
@@ -196,7 +271,7 @@ export default function DashboardLobby() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-slate-500">Total de Residentes</p>
-                      <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{pacientes.length}</h3>
+                        <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{pacientes.length}</h3>
                     </div>
                     <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
                       <Users className="h-6 w-6" />
@@ -220,12 +295,67 @@ export default function DashboardLobby() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-slate-500">Rotinas Concluídas</p>
-                      <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">0 / {pacientes.length}</h3>
+                      <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{incidentesHoje} / {pacientes.length}</h3>
                     </div>
                     <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
                   </div>
+                </div>
+              </section>
+
+              {/* Monitoramento em tempo real: alertas rápidos */}
+              <section className="mt-6">
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-lg font-black tracking-tight text-slate-900">Monitoramento em Tempo Real</h3>
+                      <p className="text-sm text-slate-500">Painel de alertas configurável</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="rounded-2xl border px-3 py-2 text-sm outline-none">
+                        <option value="24h">Últimas 24h</option>
+                        <option value="7d">Últimos 7 dias</option>
+                      </select>
+                      <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)} className="rounded-2xl border px-3 py-2 text-sm outline-none">
+                        <option value="all">Todos</option>
+                        <option value="alimentacao">Alimentação</option>
+                        <option value="hidratacao">Hidratação</option>
+                        <option value="medicacao">Medicação</option>
+                      </select>
+                      <input placeholder="Filtrar por paciente..." value={patientFilter} onChange={(e) => setPatientFilter(e.target.value)} className="rounded-2xl border px-3 py-2 text-sm outline-none" />
+                      <div className="text-sm text-slate-500 ml-2">{filteredAlerts.length} alertas</div>
+                    </div>
+                  </div>
+
+                  {filteredAlerts.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">Nenhum alerta no intervalo selecionado.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredAlerts.map((a) => {
+                        const ts = a.dataHora && typeof a.dataHora.toDate === 'function' ? a.dataHora.toDate().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+                        return (
+                          <div key={a.id} className="flex items-center justify-between gap-4 rounded-2xl border border-red-100 bg-red-50/60 p-4">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-100 text-red-700 font-black">{a.pacienteNome.charAt(0)}</div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-red-700 truncate">{a.pacienteNome}</p>
+                                  <p className="mt-1 text-xs text-slate-600 truncate">{a.tipo}: {a.resumo || a.status}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <div className="text-xs text-slate-500">{ts}</div>
+                              <button onClick={() => router.push(`/pacientes/${a.pacienteId}`)} className="rounded-full bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm">Abrir</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -243,7 +373,7 @@ export default function DashboardLobby() {
 
                   <div className="h-80 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={dadosRiscoPopulacional} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                      <AreaChart data={dadosRisco} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorIncidentes" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
@@ -284,23 +414,27 @@ export default function DashboardLobby() {
 
                   {pacientesAtencao.length > 0 ? (
                     <div className="space-y-3">
-                      {pacientesAtencao.map((paciente) => (
+                      {pacientesAtencao.map((paciente) => {
+                        const alertsCount = filteredAlerts.filter((a) => a.pacienteId === paciente.id).length;
+                        return (
                         <div
                           key={paciente.id}
                           onClick={() => router.push(`/pacientes/${paciente.id}`)}
-                          className="group cursor-pointer rounded-2xl border border-red-100 bg-red-50/60 p-4 transition-all hover:border-red-200 hover:bg-red-50"
+                          className="group cursor-pointer rounded-2xl border border-red-100 bg-red-50/60 p-4 transition-all hover:border-red-200 hover:bg-red-50 flex items-center justify-between"
                         >
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-100 text-red-700 font-black">{paciente.nome.charAt(0)}</div>
                             <div>
                               <p className="text-sm font-semibold text-red-700">{paciente.nome}</p>
                               <p className="mt-1 text-xs font-medium text-slate-500">{paciente.idade} anos</p>
                             </div>
-                            <div className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-red-600 shadow-sm">
-                              {paciente.statusSeguranca}
-                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-red-600 shadow-sm">{paciente.statusSeguranca}</div>
+                            {alertsCount > 0 ? <div className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">{alertsCount}</div> : null}
                           </div>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-800">
