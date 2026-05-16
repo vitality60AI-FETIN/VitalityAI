@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 export interface PacienteFormData {
   nome: string;
+  fotoUrl: string;
   idade: string;
   genero: "Masculino" | "Feminino";
   peso: string;
@@ -70,10 +71,11 @@ export default function PacienteForm({
   submitButtonText = "Salvar Dados",
   initialData,
   title = "Nova Anamnese Digital",
-  description = "Preencha os dados de saúde do idoso. Essas informações alimentam nossa IA Adaptativa.",
+  description = "Preencha os dados de saúde do idoso. Essas informações alimentam nossa IA Adaptativa."
 }: PacienteFormProps) {
   const [form, setForm] = useState<PacienteFormData>({
     nome: initialData?.nome || "",
+    fotoUrl: initialData?.fotoUrl || "",
     idade: initialData?.idade || "",
     genero: initialData?.genero || "Masculino",
     peso: initialData?.peso || "",
@@ -86,14 +88,17 @@ export default function PacienteForm({
 
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  // photo upload removed per request
 
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >
   ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    const name = target.name as keyof PacienteFormData;
+    const value = target.value;
+    setForm((prev) => ({ ...prev, [name]: value } as PacienteFormData));
 
     // Limpar erro do campo ao editar
     if (errors[name]) {
@@ -106,7 +111,8 @@ export default function PacienteForm({
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name } = e.target;
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    const name = target.name as string;
     setTouched((prev) => ({ ...prev, [name]: true }));
   };
 

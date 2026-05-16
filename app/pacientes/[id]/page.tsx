@@ -8,14 +8,16 @@ import { useInstitucaoId } from "../../../lib/hooks";
 import { ACTIVITY_TYPES, ActivityType } from "../../../lib/activityTypes";
 import { normalizeLogRecords } from "../../../lib/logNormalizer";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, updateDoc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore";
+
 import PacienteForm, { PacienteFormData } from "../../components/PacienteForm";
 import ConfirmDialog from "../../components/ConfirmDialog";
 
 interface PacienteDetail {
   nome: string;
+  fotoUrl?: string;
   idade: string;
-  genero: string;
+  genero: "Masculino" | "Feminino";
   peso: string;
   altura: string;
   restricoesFisicas: string;
@@ -36,6 +38,7 @@ interface LogRotina {
   observacaoTurno?: string;
   dataTurno?: string;
   dataHora?: { toDate?: () => Date };
+  tipoLabel?: string;
 }
 
 function getLogPresentation(tipo: string) {
@@ -68,6 +71,35 @@ function getStatusClasses(status: string) {
   return "border-red-200 bg-red-50 text-red-700";
 }
 
+function formatarDiaAgrupado(valor?: string | { toDate?: () => Date }) {
+  if (!valor) return "Sem data";
+
+  const data = typeof valor === "string" ? new Date(`${valor}T12:00:00`) : valor.toDate?.();
+  if (!data) return "Sem data";
+
+  return data.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function getDiaAgrupador(log: LogRotina) {
+  if (log.dataTurno) return log.dataTurno;
+  if (log.dataHora && typeof log.dataHora.toDate === "function") {
+    const data = log.dataHora.toDate();
+    const ajusteFuso = data.getTimezoneOffset() * 60000;
+    return new Date(data.getTime() - ajusteFuso).toISOString().slice(0, 10);
+  }
+  return "sem-data";
+}
+
+function getNomeArquivoFoto(nome?: string) {
+  if (!nome) return "Paciente";
+  return nome.split(" ")[0] || nome;
+}
+
 function DetailCard({
   title,
   icon,
@@ -97,6 +129,7 @@ export default function ProntuarioDigitalPage() {
   const [paciente, setPaciente] = useState<PacienteDetail | null>(null);
   const [logs, setLogs] = useState<LogRotina[]>([]);
   const [logsPage, setLogsPage] = useState(1);
+  const [showCadastroInfo, setShowCadastroInfo] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -110,6 +143,7 @@ export default function ProntuarioDigitalPage() {
     const rawId = params?.id;
     return Array.isArray(rawId) ? rawId[0] : rawId;
   }, [params]);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -138,7 +172,7 @@ export default function ProntuarioDigitalPage() {
       }
 
       try {
-        const snapshot = await getDoc(doc(db, "Pacientes", pacienteId));
+        const snapshot = await getDoc(doc(db, "Pacientes", pacienteId!));
 
         if (!snapshot.exists()) {
           setPaciente(null);
@@ -157,7 +191,7 @@ export default function ProntuarioDigitalPage() {
                 if (cuidadorSnap.exists() && (cuidadorSnap.data() as any).instituicaoId === instituicaoId) {
                   // Aceitar acesso e atualizar paciente para persistir instituicaoId
                   try {
-                    await updateDoc(doc(db, "Pacientes", pacienteId), { instituicaoId: instituicaoId });
+                    await updateDoc(doc(db, "Pacientes", pacienteId!), { instituicaoId: instituicaoId });
                   } catch (updErr) {
                     console.warn("Falha ao atualizar paciente com instituicaoId (não crítico):", updErr);
                   }
@@ -223,8 +257,15 @@ export default function ProntuarioDigitalPage() {
   const handleEditSubmit = async (formData: PacienteFormData) => {
     setEditLoading(true);
     try {
-      await updateDoc(doc(db, "Pacientes", pacienteId), {
+      if (!pacienteId) {
+        setError("Paciente não especificado.");
+        setEditLoading(false);
+        return;
+      }
+
+      await updateDoc(doc(db, "Pacientes", pacienteId!), {
         nome: formData.nome,
+        fotoUrl: formData.fotoUrl,
         idade: formData.idade,
         genero: formData.genero,
         peso: formData.peso,
@@ -265,8 +306,15 @@ export default function ProntuarioDigitalPage() {
         await deleteDoc(logDoc.ref);
       }
       
+      if (!pacienteId) {
+        setError("Paciente não especificado.");
+        setDeleteLoading(false);
+        setDeleteConfirmOpen(false);
+        return;
+      }
+
       // Deletar o paciente
-      await deleteDoc(doc(db, "Pacientes", pacienteId));
+      await deleteDoc(doc(db, "Pacientes", pacienteId!));
       
       // Redirecionar para pacientes
       router.push("/pacientes");
@@ -278,6 +326,9 @@ export default function ProntuarioDigitalPage() {
       setDeleteConfirmOpen(false);
     }
   };
+
+  
+
 
   const menuItems = [
     { name: "Painel Geral", path: "/dashboard", icon: "📊" },
@@ -324,6 +375,15 @@ export default function ProntuarioDigitalPage() {
   const paginaAtual = Math.min(logsPage, totalPaginas);
   const inicio = (paginaAtual - 1) * logsPorPagina;
   const logsVisiveis = logs.slice(inicio, inicio + logsPorPagina);
+  const gruposDeDia = logsVisiveis.reduce((acc, log) => {
+    const chave = getDiaAgrupador(log);
+    if (!acc[chave]) {
+      acc[chave] = [];
+    }
+    acc[chave].push(log);
+    return acc;
+  }, {} as Record<string, LogRotina[]>);
+  const diasOrdenados = Object.keys(gruposDeDia);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
@@ -387,7 +447,7 @@ export default function ProntuarioDigitalPage() {
         </nav>
 
         <main className="mx-auto w-full max-w-7xl px-6 py-10">
-          <header className="mb-10 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <header className="relative mb-10 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
@@ -401,27 +461,103 @@ export default function ProntuarioDigitalPage() {
                   Visão consolidada das informações clínicas do residente
                 </p>
               </div>
-              
-              {/* Botões de Ação */}
-              {paciente && !editMode && (
-                <div className="flex gap-2">
+
+              {paciente && !editMode ? (
+                <button
+                  onClick={() => setShowCadastroInfo((current) => !current)}
+                  className="group flex w-40 shrink-0 items-center gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-3 text-left shadow-sm shadow-slate-100 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-400">
+                    {paciente.fotoUrl ? (
+                      <img
+                        src={paciente.fotoUrl}
+                        alt={`Foto de ${paciente.nome}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-lg font-black uppercase text-blue-700">
+                        {getNomeArquivoFoto(paciente.nome).charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-black uppercase tracking-[0.18em] text-slate-400">Paciente</p>
+                    <p className="truncate text-sm font-bold text-slate-900">{paciente.nome}</p>
+                    <p className="text-xs text-slate-500">{showCadastroInfo ? "Ocultar cadastro" : "Ver cadastro"}</p>
+                  </div>
+                </button>
+              ) : null}
+            </div>
+
+            {paciente && showCadastroInfo && !editMode ? (
+              <div className="absolute right-0 top-20 z-20 w-full max-w-md rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-200/70">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-400">
+                    {paciente.fotoUrl ? (
+                      <img
+                        src={paciente.fotoUrl}
+                        alt={`Foto de ${paciente.nome}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xl font-black uppercase text-blue-700">
+                        {getNomeArquivoFoto(paciente.nome).charAt(0)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Cadastro</p>
+                    <h3 className="mt-1 truncate text-lg font-black text-slate-900">{paciente.nome}</h3>
+                    <p className="text-sm text-slate-500">Clique fora ou no card para ocultar.</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <MiniLine label="Idade" value={`${paciente.idade} anos`} />
+                  <MiniLine label="Gênero" value={paciente.genero} />
+                  <MiniLine label="Peso" value={`${paciente.peso} kg`} />
+                  <MiniLine label="Altura" value={`${paciente.altura} cm`} />
+                </div>
+
+                <div className="mt-4 space-y-3 rounded-2xl bg-slate-50 p-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">Objetivo Principal</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-700">{paciente.objetivo || "Não informado."}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-red-700">Contato de Emergência</p>
+                    <p className="mt-1 text-sm font-bold text-slate-900">{paciente.contatoEmergencia || "Não informado"}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Condições</p>
+                    <p className="mt-1 text-sm text-slate-600">{paciente.doencasCronicas || "Não informado."}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Restrições</p>
+                    <p className="mt-1 text-sm text-slate-600">{paciente.restricoesFisicas || "Não informado."}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setEditMode(true)}
-                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 transition-colors"
+                    className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700"
                   >
-                    <Edit2 className="h-4 w-4" />
                     Editar
                   </button>
                   <button
                     onClick={() => setDeleteConfirmOpen(true)}
-                    className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 transition-colors"
+                    className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700"
                   >
-                    <Trash2 className="h-4 w-4" />
                     Deletar
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </header>
 
           {loading ? (
@@ -477,170 +613,110 @@ export default function ProntuarioDigitalPage() {
           ) : paciente ? (
             <div className="space-y-6">
               <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <DetailCard
-                  title="Card Biometria"
-                  icon={<User className="h-5 w-5" />}
-                  className="bg-blue-50/60 lg:col-span-2"
-                >
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <InfoPill label="Idade" value={`${paciente.idade} anos`} />
-                    <InfoPill label="Gênero" value={paciente.genero} />
-                    <InfoPill label="Peso" value={`${paciente.peso} kg`} />
-                    <InfoPill label="Altura" value={`${paciente.altura} cm`} />
-                  </div>
-                </DetailCard>
-
-                <DetailCard title="Status Atual" icon={<CheckCircle2 className="h-5 w-5" />}>
-                  <div className="flex h-full items-center justify-center">
-                    <span className={`inline-flex items-center rounded-full border px-4 py-2 text-sm font-black uppercase tracking-[0.2em] ${getStatusClasses(paciente.statusSeguranca)}`}>
-                      {paciente.statusSeguranca || "Sem status"}
-                    </span>
-                  </div>
-                </DetailCard>
-              </section>
-
-              <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <DetailCard title="Card Condições" icon={<AlertTriangle className="h-5 w-5" />} className="lg:col-span-2">
-                  <div className="grid gap-4">
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                      <div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
-                        <HeartPulse className="h-4 w-4 text-rose-600" />
-                        Doenças Crônicas / Medicações
+                <div className="lg:col-span-2">
+                  <DetailCard title="Linha do Tempo Assistencial" icon={<History className="h-5 w-5" />}>
+                    {logs.length === 0 ? (
+                      <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+                        Nenhum log de rotina registrado ainda para este residente.
                       </div>
-                      <p className="text-sm leading-6 text-slate-600">
-                        {paciente.doencasCronicas || "Não informado."}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                      <div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
-                        <Activity className="h-4 w-4 text-blue-600" />
-                        Restrições Biomecânicas
-                      </div>
-                      <p className="text-sm leading-6 text-slate-600">
-                        {paciente.restricoesFisicas || "Não informado."}
-                      </p>
-                    </div>
-                  </div>
-                </DetailCard>
-
-                <DetailCard title="Card Objetivo" icon={<Users className="h-5 w-5" />}>
-                  <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
-                    <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-700">Objetivo Principal de Cuidado</p>
-                    <p className="mt-3 text-lg font-bold leading-7 text-slate-900">
-                      {paciente.objetivo || "Não informado."}
-                    </p>
-                  </div>
-                </DetailCard>
-              </section>
-
-              <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <DetailCard title="Card Segurança" icon={<Phone className="h-5 w-5" />} className="lg:col-span-2 bg-red-50/70">
-                  <div className="rounded-3xl border border-red-100 bg-white p-5 shadow-sm">
-                    <div className="mb-3 flex items-center gap-2 text-sm font-bold text-red-700">
-                      <Phone className="h-4 w-4" />
-                      Contato de Emergência
-                    </div>
-                    <p className="text-2xl font-black tracking-tight text-slate-900">
-                      {paciente.contatoEmergencia || "Não informado"}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      Este contato deve ser acionado em caso de alerta clínico ou indisponibilidade prolongada.
-                    </p>
-                  </div>
-                </DetailCard>
-
-                <DetailCard title="Resumo Rápido" icon={<Activity className="h-5 w-5" />}>
-                  <div className="space-y-3 text-sm text-slate-600">
-                    <MiniLine label="Status" value={paciente.statusSeguranca || "Sem status"} />
-                    <MiniLine label="Paciente" value={paciente.nome} />
-                    <MiniLine label="Documento" value={pacienteId || "-"} />
-                    <MiniLine label="Cadastro" value={formatarCriacao(paciente.criadoEm)} />
-                  </div>
-                </DetailCard>
-              </section>
-
-                  <section>
-                    <DetailCard title="Linha do Tempo Assistencial" icon={<History className="h-5 w-5" />}>
-                      {logs.length === 0 ? (
-                        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-                          Nenhum log de rotina registrado ainda para este residente.
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
+                          <p>
+                            Mostrando {inicio + 1}-{Math.min(inicio + logsPorPagina, logs.length)} de {logs.length}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setLogsPage((current) => Math.max(1, current - 1))}
+                              disabled={paginaAtual === 1}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Anterior
+                            </button>
+                            <button
+                              onClick={() => setLogsPage((current) => Math.min(totalPaginas, current + 1))}
+                              disabled={paginaAtual === totalPaginas}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Próxima
+                            </button>
+                          </div>
                         </div>
-                      ) : (
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
-                                <p>
-                                  Mostrando {inicio + 1}-{Math.min(inicio + logsPorPagina, logs.length)} de {logs.length}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => setLogsPage((current) => Math.max(1, current - 1))}
-                                    disabled={paginaAtual === 1}
-                                    className="rounded-full border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    Anterior
-                                  </button>
-                                  <button
-                                    onClick={() => setLogsPage((current) => Math.min(totalPaginas, current + 1))}
-                                    disabled={paginaAtual === totalPaginas}
-                                    className="rounded-full border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    Próxima
-                                  </button>
-                                </div>
-                              </div>
 
-                              <div className="space-y-3">
-                              {logsVisiveis.map((log) => {
-                            const presentation = getLogPresentation(log.tipo);
-                            const IconComponent = presentation.icon;
-                            const tituloPrincipal = log.resumo || log.status || log.tipoLabel;
-                            const dataExibida = log.dataTurno ? formatarDataTurno(log.dataTurno) : formatarData(log.dataHora);
+                        <div className="space-y-5">
+                          {diasOrdenados.map((dia) => {
+                            const logsDoDia = gruposDeDia[dia];
 
                             return (
-                              <article key={log.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                  <div>
-                                    <div className={`flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] ${presentation.accent}`}>
-                                      <IconComponent className="h-4 w-4" />
-                                      {presentation.label}
-                                    </div>
-                                    <p className="mt-2 text-base font-bold text-slate-900">{tituloPrincipal}</p>
-                                    {log.detalhe ? <p className="mt-1 text-sm text-slate-600">Detalhe: {log.detalhe}</p> : null}
-                                    {log.observacaoTurno ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacaoTurno}</p> : null}
-                                    {log.observacao ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacao}</p> : null}
-                                  </div>
-
-                                  <div className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-slate-500 shadow-sm">
-                                    {dataExibida}
-                                  </div>
+                              <div key={dia} className="space-y-3">
+                                <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                                  <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+                                  <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">
+                                    {formatarDiaAgrupado(dia)}
+                                  </p>
+                                  <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-500 shadow-sm">
+                                    {logsDoDia.length}
+                                  </span>
                                 </div>
-                              </article>
+
+                                <div className="space-y-3 pl-2">
+                                  {logsDoDia.map((log) => {
+                                    const presentation = getLogPresentation(log.tipo);
+                                    const IconComponent = presentation.icon;
+                                    const tituloPrincipal = log.resumo || log.status || log.tipoLabel;
+                                    const dataExibida = log.dataTurno ? formatarDataTurno(log.dataTurno) : formatarData(log.dataHora);
+
+                                    return (
+                                      <article key={log.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                          <div>
+                                            <div className={`flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] ${presentation.accent}`}>
+                                              <IconComponent className="h-4 w-4" />
+                                              {presentation.label}
+                                            </div>
+                                            <p className="mt-2 text-base font-bold text-slate-900">{tituloPrincipal}</p>
+                                            {log.detalhe ? <p className="mt-1 text-sm text-slate-600">Detalhe: {log.detalhe}</p> : null}
+                                            {log.observacaoTurno ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacaoTurno}</p> : null}
+                                            {log.observacao ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacao}</p> : null}
+                                          </div>
+
+                                          <div className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-slate-500 shadow-sm">
+                                            {dataExibida}
+                                          </div>
+                                        </div>
+                                      </article>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             );
                           })}
-                          </div>
-
-                          {totalPaginas > 1 ? (
-                            <div className="flex items-center justify-center gap-2 pt-2">
-                              {Array.from({ length: totalPaginas }).map((_, index) => {
-                                const pageNumber = index + 1;
-                                const isActive = pageNumber === paginaAtual;
-
-                                return (
-                                  <button
-                                    key={pageNumber}
-                                    onClick={() => setLogsPage(pageNumber)}
-                                    className={`h-2.5 rounded-full transition-all ${isActive ? "w-8 bg-blue-600" : "w-2.5 bg-slate-300 hover:bg-slate-400"}`}
-                                    aria-label={`Ir para a página ${pageNumber}`}
-                                  />
-                                );
-                              })}
-                            </div>
-                          ) : null}
                         </div>
-                      )}
-                    </DetailCard>
-                  </section>
+
+                        {totalPaginas > 1 ? (
+                          <div className="flex items-center justify-center gap-2 pt-2">
+                            {Array.from({ length: totalPaginas }).map((_, index) => {
+                              const pageNumber = index + 1;
+                              const isActive = pageNumber === paginaAtual;
+
+                              return (
+                                <button
+                                  key={pageNumber}
+                                  onClick={() => setLogsPage(pageNumber)}
+                                  className={`h-2.5 rounded-full transition-all ${isActive ? "w-8 bg-blue-600" : "w-2.5 bg-slate-300 hover:bg-slate-400"}`}
+                                  aria-label={`Ir para a página ${pageNumber}`}
+                                />
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </DetailCard>
+                </div>
+
+                
+              </section>
             </div>
           ) : null}
         </main>
@@ -673,7 +749,7 @@ function InfoPill({ label, value }: { label: string; value: string }) {
 
 function MiniLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm shadow-slate-100">
       <span className="font-semibold text-slate-500">{label}</span>
       <span className="max-w-[60%] truncate font-bold text-slate-900">{value}</span>
     </div>
