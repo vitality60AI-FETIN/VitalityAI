@@ -297,25 +297,16 @@ export default function PacienteForm({
           <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
             Objetivo Principal de Cuidado
           </label>
-          <select
+          <input
+            type="text"
             name="objetivo"
             value={form.objetivo}
             onChange={handleChange}
-            className={`${getFieldClass("objetivo")} appearance-none cursor-pointer`}
-          >
-            <option value="Manutenção de Massa Magra (Sarcopenia)">
-              Manutenção de Massa Magra (Sarcopenia)
-            </option>
-            <option value="Melhora de Mobilidade e Equilíbrio">
-              Melhora de Mobilidade e Equilíbrio
-            </option>
-            <option value="Controle de Doenças Crônicas">
-              Controle de Doenças Crônicas
-            </option>
-            <option value="Acompanhamento Cognitivo e Rotina">
-              Acompanhamento Cognitivo e Rotina
-            </option>
-          </select>
+            onBlur={handleBlur}
+            className={getFieldClass("objetivo")}
+            placeholder="Ex: manter mobilidade, reduzir quedas, acompanhar cognição..."
+          />
+          <p className="text-xs text-slate-400 mt-1 ml-1">Campo livre para descrever a meta do cuidado</p>
         </div>
       </section>
 

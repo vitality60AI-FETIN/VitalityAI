@@ -5,6 +5,7 @@ import { useParams, useRouter, usePathname } from "next/navigation";
 import { ArrowLeft, Activity, AlertTriangle, CheckCircle2, HeartPulse, Phone, User, Users, LogOut, Droplets, History, Pill, UtensilsCrossed, Edit2, Trash2 } from "lucide-react";
 import { auth, db } from "../../../lib/firebase";
 import { useInstitucaoId } from "../../../lib/hooks";
+import { ACTIVITY_TYPES, ActivityType } from "../../../lib/activityTypes";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import PacienteForm, { PacienteFormData } from "../../components/PacienteForm";
@@ -31,7 +32,27 @@ interface LogRotina {
   resumo?: string;
   detalhe?: string;
   observacao?: string;
+  observacaoTurno?: string;
+  dataTurno?: string;
   dataHora?: { toDate?: () => Date };
+}
+
+function getLogPresentation(tipo: string) {
+  const config = ACTIVITY_TYPES[tipo as ActivityType];
+
+  if (config) {
+    return {
+      label: config.label,
+      icon: config.icon,
+      accent: config.textColor,
+    };
+  }
+
+  return {
+    label: "Registro",
+    icon: Pill,
+    accent: "text-slate-600",
+  };
 }
 
 function getStatusClasses(status: string) {
@@ -74,6 +95,7 @@ export default function ProntuarioDigitalPage() {
   const [userName, setUserName] = useState("Cuidador");
   const [paciente, setPaciente] = useState<PacienteDetail | null>(null);
   const [logs, setLogs] = useState<LogRotina[]>([]);
+  const [logsPage, setLogsPage] = useState(1);
   const [editMode, setEditMode] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -181,6 +203,7 @@ export default function ProntuarioDigitalPage() {
           });
 
           setLogs(listaLogs);
+          setLogsPage(1);
         }
       } catch (fetchError) {
         console.error("Erro ao buscar paciente:", fetchError);
@@ -285,6 +308,23 @@ export default function ProntuarioDigitalPage() {
 
     return possivelTimestamp.toDate().toLocaleDateString("pt-BR");
   };
+
+  const formatarDataTurno = (valor?: string) => {
+    if (!valor) return "Sem data";
+
+    const data = new Date(`${valor}T12:00:00`);
+    return data.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const logsPorPagina = 10;
+  const totalPaginas = Math.max(1, Math.ceil(logs.length / logsPorPagina));
+  const paginaAtual = Math.min(logsPage, totalPaginas);
+  const inicio = (paginaAtual - 1) * logsPorPagina;
+  const logsVisiveis = logs.slice(inicio, inicio + logsPorPagina);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
@@ -528,31 +568,76 @@ export default function ProntuarioDigitalPage() {
                           Nenhum log de rotina registrado ainda para este residente.
                         </div>
                       ) : (
-                        <div className="space-y-3">
-                          {logs.map((log) => {
-                            const isHidratacao = log.tipo === "hidratacao";
-                            const isAlimentacao = log.tipo === "alimentacao";
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
+                                <p>
+                                  Mostrando {inicio + 1}-{Math.min(inicio + logsPorPagina, logs.length)} de {logs.length}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setLogsPage((current) => Math.max(1, current - 1))}
+                                    disabled={paginaAtual === 1}
+                                    className="rounded-full border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    Anterior
+                                  </button>
+                                  <button
+                                    onClick={() => setLogsPage((current) => Math.min(totalPaginas, current + 1))}
+                                    disabled={paginaAtual === totalPaginas}
+                                    className="rounded-full border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    Próxima
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                              {logsVisiveis.map((log) => {
+                            const presentation = getLogPresentation(log.tipo);
+                            const IconComponent = presentation.icon;
+                            const tituloPrincipal = log.resumo || log.status;
+                            const dataExibida = log.dataTurno ? formatarDataTurno(log.dataTurno) : formatarData(log.dataHora);
 
                             return (
                               <article key={log.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
                                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                   <div>
-                                    <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-slate-500">
-                                      {isHidratacao ? <Droplets className="h-4 w-4 text-sky-600" /> : isAlimentacao ? <UtensilsCrossed className="h-4 w-4 text-amber-600" /> : <Pill className="h-4 w-4 text-emerald-600" />}
-                                      {isHidratacao ? "Hidratação" : isAlimentacao ? "Alimentação" : "Medicação"}
+                                    <div className={`flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] ${presentation.accent}`}>
+                                      <IconComponent className="h-4 w-4" />
+                                      {presentation.label}
                                     </div>
-                                    <p className="mt-2 text-base font-bold text-slate-900">{log.resumo || log.status}</p>
+                                    <p className="mt-2 text-base font-bold text-slate-900">{tituloPrincipal}</p>
                                     {log.detalhe ? <p className="mt-1 text-sm text-slate-600">Detalhe: {log.detalhe}</p> : null}
+                                    {log.observacaoTurno ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacaoTurno}</p> : null}
                                     {log.observacao ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacao}</p> : null}
                                   </div>
 
                                   <div className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-slate-500 shadow-sm">
-                                    {formatarData(log.dataHora)}
+                                    {dataExibida}
                                   </div>
                                 </div>
                               </article>
                             );
                           })}
+                          </div>
+
+                          {totalPaginas > 1 ? (
+                            <div className="flex items-center justify-center gap-2 pt-2">
+                              {Array.from({ length: totalPaginas }).map((_, index) => {
+                                const pageNumber = index + 1;
+                                const isActive = pageNumber === paginaAtual;
+
+                                return (
+                                  <button
+                                    key={pageNumber}
+                                    onClick={() => setLogsPage(pageNumber)}
+                                    className={`h-2.5 rounded-full transition-all ${isActive ? "w-8 bg-blue-600" : "w-2.5 bg-slate-300 hover:bg-slate-400"}`}
+                                    aria-label={`Ir para a página ${pageNumber}`}
+                                  />
+                                );
+                              })}
+                            </div>
+                          ) : null}
                         </div>
                       )}
                     </DetailCard>
