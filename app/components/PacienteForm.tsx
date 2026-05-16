@@ -1,0 +1,370 @@
+"use client";
+
+import { useState } from "react";
+
+export interface PacienteFormData {
+  nome: string;
+  idade: string;
+  genero: "Masculino" | "Feminino";
+  peso: string;
+  altura: string;
+  restricoesFisicas: string;
+  doencasCronicas: string;
+  contatoEmergencia: string;
+  objetivo: string;
+}
+
+interface ValidationErrors {
+  [key: string]: string;
+}
+
+interface PacienteFormProps {
+  onSubmit: (data: PacienteFormData) => Promise<void>;
+  isLoading?: boolean;
+  submitButtonText?: string;
+  initialData?: Partial<PacienteFormData>;
+  title?: string;
+  description?: string;
+}
+
+/**
+ * Validações robustas para formulário de paciente
+ */
+const validarDados = (data: PacienteFormData): ValidationErrors => {
+  const errors: ValidationErrors = {};
+
+  // Nome
+  if (!data.nome || data.nome.trim().length < 3) {
+    errors.nome = "Nome deve ter pelo menos 3 caracteres";
+  }
+
+  // Idade
+  const idade = parseInt(data.idade);
+  if (!data.idade || isNaN(idade) || idade < 40 || idade > 130) {
+    errors.idade = "Idade deve estar entre 40 e 130 anos";
+  }
+
+  // Peso
+  const peso = parseFloat(data.peso);
+  if (!data.peso || isNaN(peso) || peso < 20 || peso > 300) {
+    errors.peso = "Peso deve estar entre 20 e 300 kg";
+  }
+
+  // Altura
+  const altura = parseInt(data.altura);
+  if (!data.altura || isNaN(altura) || altura < 100 || altura > 250) {
+    errors.altura = "Altura deve estar entre 100 e 250 cm";
+  }
+
+  // Contato de Emergência (telefone básico)
+  if (!data.contatoEmergencia || data.contatoEmergencia.replace(/\D/g, "").length < 10) {
+    errors.contatoEmergencia = "Telefone inválido (mínimo 10 dígitos)";
+  }
+
+  return errors;
+};
+
+export default function PacienteForm({
+  onSubmit,
+  isLoading = false,
+  submitButtonText = "Salvar Dados",
+  initialData,
+  title = "Nova Anamnese Digital",
+  description = "Preencha os dados de saúde do idoso. Essas informações alimentam nossa IA Adaptativa.",
+}: PacienteFormProps) {
+  const [form, setForm] = useState<PacienteFormData>({
+    nome: initialData?.nome || "",
+    idade: initialData?.idade || "",
+    genero: initialData?.genero || "Masculino",
+    peso: initialData?.peso || "",
+    altura: initialData?.altura || "",
+    restricoesFisicas: initialData?.restricoesFisicas || "",
+    doencasCronicas: initialData?.doencasCronicas || "",
+    contatoEmergencia: initialData?.contatoEmergencia || "",
+    objetivo: initialData?.objetivo || "Manutenção de Massa Magra (Sarcopenia)",
+  });
+
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+
+    // Limpar erro do campo ao editar
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name } = e.target;
+    setTouched((prev) => ({ ...prev, [name]: true }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validar todos os campos
+    const newErrors = validarDados(form);
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length === 0) {
+      try {
+        await onSubmit(form);
+      } catch (error) {
+        console.error("Erro ao salvar:", error);
+      }
+    }
+  };
+
+  const getFieldClass = (fieldName: string) => {
+    const hasError = errors[fieldName] && touched[fieldName];
+    const baseClass = "w-full p-4 rounded-2xl border-2 transition-all outline-none";
+    const bgClass = "bg-slate-50 focus:bg-white";
+
+    if (hasError) {
+      return `${baseClass} ${bgClass} border-red-500 focus:border-red-500`;
+    }
+
+    return `${baseClass} ${bgClass} border-transparent focus:border-blue-500`;
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-10">
+      {/* Cabeçalho */}
+      <header>
+        <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-3">
+          {title}
+        </h1>
+        <p className="text-slate-500 text-lg max-w-2xl">
+          {description}
+        </p>
+      </header>
+
+      {/* SEÇÃO 1: DADOS BÁSICOS & BIOMETRIA */}
+      <section>
+        <h2 className="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-6 border-b border-slate-100 pb-2">
+          1. Identificação & Biometria
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Nome */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+              Nome Completo do Idoso
+            </label>
+            <input
+              type="text"
+              name="nome"
+              value={form.nome}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={getFieldClass("nome")}
+              placeholder="Ex: José da Silva"
+            />
+            {errors.nome && touched.nome && (
+              <p className="text-sm text-red-600 mt-2 ml-1">⚠️ {errors.nome}</p>
+            )}
+          </div>
+
+          {/* Idade */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+              Idade
+            </label>
+            <input
+              type="number"
+              name="idade"
+              value={form.idade}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={getFieldClass("idade")}
+              placeholder="80"
+            />
+            {errors.idade && touched.idade && (
+              <p className="text-sm text-red-600 mt-2 ml-1">⚠️ {errors.idade}</p>
+            )}
+          </div>
+
+          {/* Gênero */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+              Gênero
+            </label>
+            <select
+              name="genero"
+              value={form.genero}
+              onChange={handleChange}
+              className={`${getFieldClass("genero")} appearance-none cursor-pointer`}
+            >
+              <option value="Masculino">Masculino</option>
+              <option value="Feminino">Feminino</option>
+            </select>
+          </div>
+
+          {/* Peso */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+              Peso (kg)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              name="peso"
+              value={form.peso}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={getFieldClass("peso")}
+              placeholder="Ex: 75.5"
+            />
+            {errors.peso && touched.peso && (
+              <p className="text-sm text-red-600 mt-2 ml-1">⚠️ {errors.peso}</p>
+            )}
+          </div>
+
+          {/* Altura */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+              Altura (cm)
+            </label>
+            <input
+              type="number"
+              name="altura"
+              value={form.altura}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={getFieldClass("altura")}
+              placeholder="Ex: 170"
+            />
+            {errors.altura && touched.altura && (
+              <p className="text-sm text-red-600 mt-2 ml-1">⚠️ {errors.altura}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* SEÇÃO 2: CONDIÇÕES & OBJETIVOS */}
+      <section>
+        <h2 className="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-6 border-b border-slate-100 pb-2">
+          2. Condições Clínicas & Objetivos
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+          {/* Restrições Físicas */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+              Restrições Biomecânicas
+            </label>
+            <textarea
+              name="restricoesFisicas"
+              value={form.restricoesFisicas}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              rows={3}
+              className={`${getFieldClass("restricoesFisicas")} resize-none`}
+              placeholder="Ex: Dores no joelho, usa andador..."
+            />
+            <p className="text-xs text-slate-400 mt-1 ml-1">Opcional</p>
+          </div>
+
+          {/* Doenças Crônicas */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+              Doenças Crônicas / Medicações
+            </label>
+            <textarea
+              name="doencasCronicas"
+              value={form.doencasCronicas}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              rows={3}
+              className={`${getFieldClass("doencasCronicas")} resize-none`}
+              placeholder="Ex: Hipertensão, toma Losartana..."
+            />
+            <p className="text-xs text-slate-400 mt-1 ml-1">Opcional</p>
+          </div>
+        </div>
+
+        {/* Objetivo */}
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+            Objetivo Principal de Cuidado
+          </label>
+          <select
+            name="objetivo"
+            value={form.objetivo}
+            onChange={handleChange}
+            className={`${getFieldClass("objetivo")} appearance-none cursor-pointer`}
+          >
+            <option value="Manutenção de Massa Magra (Sarcopenia)">
+              Manutenção de Massa Magra (Sarcopenia)
+            </option>
+            <option value="Melhora de Mobilidade e Equilíbrio">
+              Melhora de Mobilidade e Equilíbrio
+            </option>
+            <option value="Controle de Doenças Crônicas">
+              Controle de Doenças Crônicas
+            </option>
+            <option value="Acompanhamento Cognitivo e Rotina">
+              Acompanhamento Cognitivo e Rotina
+            </option>
+          </select>
+        </div>
+      </section>
+
+      {/* SEÇÃO 3: SEGURANÇA (GATILHO) */}
+      <section className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
+        <h2 className="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-4">
+          3. Gatilho de Segurança
+        </h2>
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+              Contato de Emergência (WhatsApp)
+            </label>
+            <input
+              type="tel"
+              name="contatoEmergencia"
+              value={form.contatoEmergencia}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className={getFieldClass("contatoEmergencia")}
+              placeholder="+55 35 99999-9999"
+            />
+            {errors.contatoEmergencia && touched.contatoEmergencia && (
+              <p className="text-sm text-red-600 mt-2 ml-1">
+                ⚠️ {errors.contatoEmergencia}
+              </p>
+            )}
+            <p className="text-xs text-slate-400 mt-2 ml-1 italic">
+              *Este número receberá o alerta SOS se houver inatividade prolongada no app.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Submit Button */}
+      <button
+        type="submit"
+        disabled={isLoading || Object.keys(errors).length > 0}
+        className="w-full bg-slate-900 text-white p-6 rounded-[2rem] font-black text-xl shadow-2xl shadow-slate-200 hover:bg-blue-600 hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isLoading ? (
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            Salvando...
+          </span>
+        ) : (
+          submitButtonText
+        )}
+      </button>
+    </form>
+  );
+}

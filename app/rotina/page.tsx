@@ -5,19 +5,19 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
-  Droplets,
   History,
   LogOut,
-  Pill,
   Sparkles,
   StickyNote,
-  UtensilsCrossed,
   Waves,
 } from "lucide-react";
 import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import ActivitySection from "../components/ActivitySection";
+import { ACTIVITY_TYPES, ActivityType, useAllActivityTypes } from "../../lib/activityTypes";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 interface Paciente {
   id: string;
@@ -28,16 +28,58 @@ interface Paciente {
 
 type FeedbackState = {
   pacienteId: string;
-  tipoRotina: string;
+  tipoRotina: ActivityType;
   valor: string;
 } | null;
 
+type ActivityDraft = {
+  status: string;
+  detail: string;
+};
+
 type LogDraft = {
-  hidratacao: string;
-  alimentacao: string;
-  refeicao: string;
-  medicacao: string;
-  observacao: string;
+  atividades: Record<ActivityType, ActivityDraft>;
+  observacaoTurno: string;
+};
+
+type ConclusaoTurno = {
+  pacienteId: string;
+  pacienteNome: string;
+  dataTurno: string;
+  atividades: Array<{
+    tipo: ActivityType;
+    label: string;
+    status: string;
+    detail: string;
+  }>;
+  observacaoTurno: string;
+};
+
+const criarDraftVazio = (): LogDraft => {
+  const atividades = Object.keys(ACTIVITY_TYPES).reduce((acc, key) => {
+    const tipo = key as ActivityType;
+    acc[tipo] = { status: "", detail: "" };
+    return acc;
+  }, {} as Record<ActivityType, ActivityDraft>);
+
+  return {
+    atividades,
+    observacaoTurno: "",
+  };
+};
+
+const formatarDataParaInput = (data: Date = new Date()) => {
+  const ajusteFuso = data.getTimezoneOffset() * 60000;
+  return new Date(data.getTime() - ajusteFuso).toISOString().slice(0, 10);
+};
+
+const formatarDataHumana = (valor: string) => {
+  const data = new Date(`${valor}T12:00:00`);
+  return data.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
 export default function LogRotinaPage() {
@@ -46,9 +88,10 @@ export default function LogRotinaPage() {
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [feedback, setFeedback] = useState<FeedbackState>(null);
   const [drafts, setDrafts] = useState<Record<string, LogDraft>>({});
   const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(null);
+  const [conclusaoTurno, setConclusaoTurno] = useState<ConclusaoTurno | null>(null);
+  const [salvandoTurno, setSalvandoTurno] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -118,26 +161,64 @@ export default function LogRotinaPage() {
     router.push("/pacientes/novo");
   };
 
-  const obterDraft = (pacienteId: string) =>
-    drafts[pacienteId] ?? {
-      hidratacao: "",
-      alimentacao: "",
-      refeicao: "",
-      medicacao: "",
-      observacao: "",
-    };
+  const obterDraft = (pacienteId: string) => {
+    return drafts[pacienteId] ?? criarDraftVazio();
+  };
 
-  const atualizarDraft = (pacienteId: string, campo: keyof LogDraft, valor: string) => {
+  const atualizarDraft = (pacienteId: string, tipo: ActivityType, campo: "status" | "detail", valor: string) => {
     setDrafts((current) => ({
       ...current,
       [pacienteId]: {
         ...obterDraft(pacienteId),
-        [campo]: valor,
+        atividades: {
+          ...obterDraft(pacienteId).atividades,
+          [tipo]: {
+            ...obterDraft(pacienteId).atividades[tipo],
+            [campo]: valor,
+          },
+        },
       },
     }));
   };
 
-  const registrarLog = async (pacienteId: string, tipoRotina: string, valor: string) => {
+  const montarConclusaoTurno = (paciente: Paciente): ConclusaoTurno | null => {
+    const draft = obterDraft(paciente.id);
+    const atividades = (Object.keys(ACTIVITY_TYPES) as ActivityType[])
+      .map((tipo) => ({
+        tipo,
+        label: ACTIVITY_TYPES[tipo].label,
+        status: draft.atividades[tipo].status,
+        detail: draft.atividades[tipo].detail,
+      }))
+      .filter((item) => item.status);
+
+    if (atividades.length === 0 && !draft.observacaoTurno.trim()) {
+      return null;
+    }
+
+    return {
+      pacienteId: paciente.id,
+      pacienteNome: paciente.nome,
+      dataTurno: formatarDataParaInput(),
+      atividades,
+      observacaoTurno: draft.observacaoTurno.trim(),
+    };
+  };
+
+  const abrirConclusaoTurno = (paciente: Paciente) => {
+    const resumo = montarConclusaoTurno(paciente);
+
+    if (!resumo) {
+      setToast({ message: "Preencha ao menos uma atividade antes de concluir.", variant: "error" });
+      return;
+    }
+
+    setConclusaoTurno(resumo);
+  };
+
+  const salvarConclusaoTurno = async () => {
+    if (!conclusaoTurno) return;
+
     try {
       const usuarioAtual = auth.currentUser;
 
@@ -151,49 +232,42 @@ export default function LogRotinaPage() {
         return;
       }
 
-      const draft = obterDraft(pacienteId);
-      const detalhe = tipoRotina === "alimentacao" ? draft.refeicao : tipoRotina === "medicacao" ? draft.medicacao : draft.hidratacao;
-      const resumo = detalhe ? `${valor} - ${detalhe}` : valor;
+      setSalvandoTurno(true);
 
-      await addDoc(collection(db, "LogsRotina"), {
-        pacienteId,
-        cuidadorId: usuarioAtual.uid,
-        instituicaoId: instituicaoId, // ← MULTI-TENANCY!
-        dataHora: serverTimestamp(),
-        tipo: tipoRotina,
-        status: valor,
-        resumo,
-        detalhe,
-        observacao: draft.observacao,
-      });
+      const draft = obterDraft(conclusaoTurno.pacienteId);
 
-      setFeedback({ pacienteId, tipoRotina, valor });
+      for (const atividade of conclusaoTurno.atividades) {
+        const detalhe = atividade.detail;
+        const resumo = detalhe ? `${atividade.status} - ${detalhe}` : atividade.status;
+
+        await addDoc(collection(db, "LogsRotina"), {
+          pacienteId: conclusaoTurno.pacienteId,
+          cuidadorId: usuarioAtual.uid,
+          instituicaoId,
+          dataHora: serverTimestamp(),
+          dataTurno: conclusaoTurno.dataTurno,
+          tipo: atividade.tipo,
+          status: atividade.status,
+          resumo,
+          detalhe,
+          observacaoTurno: draft.observacaoTurno.trim(),
+          turnoEncerrado: true,
+        });
+      }
+
       setDrafts((current) => ({
         ...current,
-        [pacienteId]: {
-          hidratacao: "",
-          alimentacao: "",
-          refeicao: "",
-          medicacao: "",
-          observacao: "",
-        },
+        [conclusaoTurno.pacienteId]: criarDraftVazio(),
       }));
-      setToast({ message: "Registro salvo com sucesso.", variant: "success" });
+      setToast({ message: `Logs de ${conclusaoTurno.pacienteNome} salvos com sucesso.`, variant: "success" });
+      setConclusaoTurno(null);
     } catch (error) {
-      console.error("Erro ao registrar log:", error);
-      setToast({ message: "Falha ao salvar o registro.", variant: "error" });
+      console.error("Erro ao salvar turno:", error);
+      setToast({ message: "Falha ao salvar os logs do turno.", variant: "error" });
+    } finally {
+      setSalvandoTurno(false);
     }
   };
-
-  useEffect(() => {
-    if (!feedback) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setFeedback(null);
-    }, 1800);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [feedback]);
 
   if (loading) {
     return (
@@ -210,17 +284,7 @@ export default function LogRotinaPage() {
     { name: "Insights IA", path: "/insights", icon: "🧠" },
   ];
 
-  const hidratacaoOptions = [
-    { label: "Pouca", value: "Pouca", color: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100" },
-    { label: "Adequada", value: "Adequada", color: "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100" },
-    { label: "Boa", value: "Boa", color: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" },
-  ];
-
-  const alimentacaoOptions = [
-    { label: "Comeu Tudo", value: "Comeu Tudo", color: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" },
-    { label: "Metade", value: "Metade", color: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100" },
-    { label: "Recusou", value: "Recusou", color: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100" },
-  ];
+  const allActivityTypes = useAllActivityTypes();
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
@@ -309,17 +373,17 @@ export default function LogRotinaPage() {
               </p>
               <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">Log de Rotina</h1>
               <p className="mt-2 max-w-2xl text-lg text-slate-500">
-                Registre alimentação, hidratação e medicação em poucos toques, com contexto suficiente para o prontuário virar um histórico real de cuidado.
+                Preencha as atividades ao longo do turno e, ao final, revise tudo antes de salvar. Nada vai para o prontuário sem sua confirmação.
               </p>
             </div>
 
             <div className="rounded-3xl border border-blue-100 bg-blue-50/70 px-5 py-4 text-sm text-blue-800 shadow-sm">
               <div className="flex items-center gap-2 font-black">
                 <History className="h-4 w-4" />
-                Fluxo rápido
+                Revisão final obrigatória
               </div>
               <p className="mt-2 max-w-sm leading-6 text-blue-700">
-                Marque o estado, detalhe o que foi consumido e adicione uma observação opcional se houver algo relevante.
+                Você pode marcar atividades, adicionar detalhes e só depois concluir o turno para salvar os logs do paciente.
               </p>
             </div>
 
@@ -353,12 +417,13 @@ export default function LogRotinaPage() {
                 .filter((p) => p.nome.toLowerCase().includes(searchTerm.toLowerCase()))
                 .map((paciente) => {
                 const draft = obterDraft(paciente.id);
-                const hidratacaoAtual = feedback?.pacienteId === paciente.id && feedback.tipoRotina === "hidratacao" ? feedback.valor : null;
-                const alimentacaoAtual = feedback?.pacienteId === paciente.id && feedback.tipoRotina === "alimentacao" ? feedback.valor : null;
-                const medicacaoAtual = feedback?.pacienteId === paciente.id && feedback.tipoRotina === "medicacao" ? feedback.valor : null;
-
                 const isExpanded = Boolean(expanded[paciente.id]);
-                const lastSummary = draft.observacao ? `Observação: ${draft.observacao}` : "Sem registros";
+                const atividadesPreenchidas = (Object.keys(ACTIVITY_TYPES) as ActivityType[]).filter(
+                  (tipo) => Boolean(draft.atividades[tipo].status)
+                );
+                const resumoLabel = atividadesPreenchidas.length
+                  ? `${atividadesPreenchidas.length} atividade(s) pronta(s) para concluir`
+                  : "Ainda sem atividades marcadas neste turno";
 
                 return (
                   <div key={paciente.id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-100">
@@ -367,7 +432,7 @@ export default function LogRotinaPage() {
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 text-2xl font-black text-blue-700">{paciente.nome.charAt(0)}</div>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-slate-900 truncate">{paciente.nome} • {paciente.idade} anos</p>
-                          <p className="mt-1 text-xs text-slate-500 truncate">{lastSummary}</p>
+                          <p className="mt-1 text-xs text-slate-500 truncate">Clique para expandir e registrar atividades</p>
                         </div>
                       </div>
 
@@ -377,138 +442,62 @@ export default function LogRotinaPage() {
                       </div>
                     </div>
 
+                    <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3 text-sm text-slate-600">
+                      <span className="font-bold text-slate-900">Rascunho do turno:</span> {resumoLabel}
+                    </div>
+
                     {isExpanded ? (
                       <>
-                        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-6 lg:grid-cols-3">
-                          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <div className="mb-4 flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
-                                <Droplets className="h-5 w-5" />
-                              </div>
-                              <div>
-                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Hidratação</h3>
-                                <p className="text-sm text-slate-500">Quanto bebeu hoje?</p>
-                              </div>
-                            </div>
+                        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-6 lg:grid-cols-2 xl:grid-cols-3">
+                          {allActivityTypes.map((activityType) => {
+                            const tipo = activityType.id as ActivityType;
+                            const selectedStatus = draft.atividades[tipo].status;
 
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                              {hidratacaoOptions.map((option) => {
-                                const active = hidratacaoAtual === option.value;
-                                return (
-                                  <button
-                                    key={option.value}
-                                    onClick={() => registrarLog(paciente.id, "hidratacao", option.value)}
-                                    className={`rounded-2xl border px-3 py-3 text-sm font-bold transition-all ${active ? "border-emerald-300 bg-emerald-500 text-white shadow-lg shadow-emerald-100" : option.color}`}
-                                  >
-                                    {option.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                              <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                                <StickyNote className="h-3.5 w-3.5" />
-                                Detalhe rápido
-                              </label>
-                              <input
-                                value={draft.hidratacao}
-                                onChange={(e) => atualizarDraft(paciente.id, "hidratacao", e.target.value)}
-                                placeholder="Ex: 2 copos, água com gelatina, soro..."
-                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
+                            return (
+                              <ActivitySection
+                                key={tipo}
+                                tipo={tipo}
+                                selectedStatus={selectedStatus}
+                                onOptionClick={(status: string) => atualizarDraft(paciente.id, tipo, "status", status)}
+                                detailValue={draft.atividades[tipo].detail}
+                                onDetailChange={(value: string) => atualizarDraft(paciente.id, tipo, "detail", value)}
                               />
-                            </div>
-                          </div>
-
-                          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <div className="mb-4 flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-                                <UtensilsCrossed className="h-5 w-5" />
-                              </div>
-                              <div>
-                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Alimentação</h3>
-                                <p className="text-sm text-slate-500">Comeu? O que foi consumido?</p>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                              {alimentacaoOptions.map((option) => {
-                                const active = alimentacaoAtual === option.value;
-                                return (
-                                  <button
-                                    key={option.value}
-                                    onClick={() => registrarLog(paciente.id, "alimentacao", option.value)}
-                                    className={`rounded-2xl border px-3 py-3 text-sm font-bold transition-all ${active ? "border-emerald-300 bg-emerald-500 text-white shadow-lg shadow-emerald-100" : option.color}`}
-                                  >
-                                    {option.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                              <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                                <StickyNote className="h-3.5 w-3.5" />
-                                O que comeu?
-                              </label>
-                              <input
-                                value={draft.refeicao}
-                                onChange={(e) => atualizarDraft(paciente.id, "refeicao", e.target.value)}
-                                placeholder="Ex: arroz, feijão, frango, sopa, fruta..."
-                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <div className="mb-4 flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-                                <Pill className="h-5 w-5" />
-                              </div>
-                              <div>
-                                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Medicação Crítica</h3>
-                                <p className="text-sm text-slate-500">Nomeie o medicamento administrado</p>
-                              </div>
-                            </div>
-
-                            <div className="mb-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                              <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                                <StickyNote className="h-3.5 w-3.5" />
-                                Medicação
-                              </label>
-                              <input
-                                value={draft.medicacao}
-                                onChange={(e) => atualizarDraft(paciente.id, "medicacao", e.target.value)}
-                                placeholder="Ex: Losartana 50mg, Dipirona..."
-                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
-                              />
-                            </div>
-
-                            <button
-                              onClick={() => registrarLog(paciente.id, "medicacao", "Administrada")}
-                              className={`flex w-full items-center justify-center gap-2 rounded-3xl px-4 py-4 text-sm font-black transition-all ${medicacaoAtual === "Administrada" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-100" : "bg-slate-900 text-white hover:bg-slate-800"}`}
-                            >
-                              <CheckCircle2 className="h-5 w-5" />
-                              Medicação Administrada
-                            </button>
-                          </div>
+                            );
+                          })}
                         </div>
 
-                        <div className="border-t border-slate-100 bg-white px-6 pb-6 pt-4">
-                          <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                            <StickyNote className="h-3.5 w-3.5" />
-                            Observação do turno
-                          </label>
-                          <textarea
-                            value={draft.observacao}
-                            onChange={(e) => atualizarDraft(paciente.id, "observacao", e.target.value)}
-                            rows={2}
-                            placeholder="Ex: aceitou bem a refeição, precisou de auxílio, recusou líquido, sonolento..."
-                            className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
-                          />
-                          <p className="mt-2 text-xs text-slate-400">
-                            A observação fica anexada ao log e ajuda no histórico do prontuário.
-                          </p>
+                        <div className="border-t border-slate-100 bg-white px-6 pb-6 pt-5">
+                          <div className="mb-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                            <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                              <StickyNote className="h-3.5 w-3.5" />
+                              Observação do turno
+                            </label>
+                            <textarea
+                              value={draft.observacaoTurno}
+                              onChange={(e) =>
+                                setDrafts((current) => ({
+                                  ...current,
+                                  [paciente.id]: {
+                                    ...obterDraft(paciente.id),
+                                    observacaoTurno: e.target.value,
+                                  },
+                                }))
+                              }
+                              rows={2}
+                              placeholder="Ex: residente mais sonolento, precisou de ajuda extra, houve visita da família..."
+                              className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
+                            />
+                            <p className="mt-2 text-xs text-slate-400">
+                              Essa observação será anexada aos registros quando você concluir o turno.
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => abrirConclusaoTurno(paciente)}
+                            className="w-full rounded-3xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition-all hover:bg-blue-600"
+                          >
+                            Concluir turno deste paciente
+                          </button>
                         </div>
                       </>
                     ) : null}
@@ -518,6 +507,76 @@ export default function LogRotinaPage() {
             </div>
           )}
         </main>
+
+        <ConfirmDialog
+          isOpen={Boolean(conclusaoTurno)}
+          title={conclusaoTurno ? `Concluir turno de ${conclusaoTurno.pacienteNome}?` : "Concluir turno"}
+          description={conclusaoTurno ? `Revisão dos registros do dia ${formatarDataHumana(conclusaoTurno.dataTurno)}. Nenhum log será salvo sem sua confirmação.` : undefined}
+          variant="warning"
+          confirmText="Salvar logs do paciente"
+          cancelText="Voltar e editar"
+          isLoading={salvandoTurno}
+          onConfirm={salvarConclusaoTurno}
+          onCancel={() => setConclusaoTurno(null)}
+        >
+          {conclusaoTurno ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Paciente</p>
+                <p className="mt-2 text-base font-bold text-slate-900">{conclusaoTurno.pacienteNome}</p>
+                <p className="mt-1 text-sm text-slate-500">Data de referência: {formatarDataHumana(conclusaoTurno.dataTurno)}</p>
+              </div>
+
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <label className="block text-xs font-black uppercase tracking-[0.2em] text-amber-800">
+                  Alterar data do registro
+                </label>
+                <input
+                  type="date"
+                  value={conclusaoTurno.dataTurno}
+                  onChange={(e) =>
+                    setConclusaoTurno((current) =>
+                      current ? { ...current, dataTurno: e.target.value } : current
+                    )
+                  }
+                  className="mt-3 w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm outline-none focus:border-amber-400"
+                />
+                <p className="mt-2 text-xs text-amber-800/70">
+                  Use essa data quando estiver lançando um turno de um dia anterior.
+                </p>
+              </div>
+
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                {conclusaoTurno.atividades.length > 0 ? (
+                  conclusaoTurno.atividades.map((atividade) => (
+                    <div key={atividade.tipo} className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-sm font-black text-slate-900">{atividade.label}</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        <span className="font-semibold">Status:</span> {atividade.status}
+                      </p>
+                      {atividade.detail ? (
+                        <p className="mt-1 text-sm text-slate-500">
+                          <span className="font-semibold">Detalhe:</span> {atividade.detail}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    Nenhuma atividade marcada. Apenas a observação do turno está preenchida.
+                  </div>
+                )}
+              </div>
+
+              {conclusaoTurno.observacaoTurno ? (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">Observação do turno</p>
+                  <p className="mt-2 text-sm leading-6 text-blue-900">{conclusaoTurno.observacaoTurno}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </ConfirmDialog>
       </div>
     </div>
   );

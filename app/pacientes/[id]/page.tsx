@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, usePathname } from "next/navigation";
-import { ArrowLeft, Activity, AlertTriangle, CheckCircle2, HeartPulse, Phone, User, Users, LogOut, Droplets, History, Pill, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, Activity, AlertTriangle, CheckCircle2, HeartPulse, Phone, User, Users, LogOut, Droplets, History, Pill, UtensilsCrossed, Edit2, Trash2 } from "lucide-react";
 import { auth, db } from "../../../lib/firebase";
 import { useInstitucaoId } from "../../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, where, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
+import PacienteForm, { PacienteFormData } from "../../components/PacienteForm";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 interface PacienteDetail {
   nome: string;
@@ -72,6 +74,10 @@ export default function ProntuarioDigitalPage() {
   const [userName, setUserName] = useState("Cuidador");
   const [paciente, setPaciente] = useState<PacienteDetail | null>(null);
   const [logs, setLogs] = useState<LogRotina[]>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -192,6 +198,65 @@ export default function ProntuarioDigitalPage() {
     router.push("/");
   };
 
+  const handleEditSubmit = async (formData: PacienteFormData) => {
+    setEditLoading(true);
+    try {
+      await updateDoc(doc(db, "Pacientes", pacienteId), {
+        nome: formData.nome,
+        idade: formData.idade,
+        genero: formData.genero,
+        peso: formData.peso,
+        altura: formData.altura,
+        restricoesFisicas: formData.restricoesFisicas,
+        doencasCronicas: formData.doencasCronicas,
+        contatoEmergencia: formData.contatoEmergencia,
+        objetivo: formData.objetivo,
+      });
+      
+      // Atualizar estado local
+      setPaciente({
+        ...paciente!,
+        ...formData,
+      });
+      
+      setEditMode(false);
+    } catch (err) {
+      console.error("Erro ao atualizar:", err);
+      setError("Falha ao atualizar dados do paciente.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeletePaciente = async () => {
+    setDeleteLoading(true);
+    try {
+      // Deletar todos os logs do paciente
+      const logsSnapshot = await getDocs(
+        query(
+          collection(db, "LogsRotina"),
+          where("pacienteId", "==", pacienteId)
+        )
+      );
+      
+      for (const logDoc of logsSnapshot.docs) {
+        await deleteDoc(logDoc.ref);
+      }
+      
+      // Deletar o paciente
+      await deleteDoc(doc(db, "Pacientes", pacienteId));
+      
+      // Redirecionar para pacientes
+      router.push("/pacientes");
+    } catch (err) {
+      console.error("Erro ao deletar:", err);
+      setError("Falha ao deletar paciente.");
+    } finally {
+      setDeleteLoading(false);
+      setDeleteConfirmOpen(false);
+    }
+  };
+
   const menuItems = [
     { name: "Painel Geral", path: "/dashboard", icon: "📊" },
     { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
@@ -284,23 +349,73 @@ export default function ProntuarioDigitalPage() {
 
         <main className="mx-auto w-full max-w-7xl px-6 py-10">
           <header className="mb-10 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div>
-              <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                <Activity className="h-3.5 w-3.5" />
-                Prontuário Digital
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">
-                {paciente?.nome || "Carregando paciente..."}
-              </h1>
-              <p className="mt-2 text-lg text-slate-500">
-                Visão consolidada das informações clínicas do residente
-              </p>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                  <Activity className="h-3.5 w-3.5" />
+                  Prontuário Digital
+                </p>
+                <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">
+                  {paciente?.nome || "Carregando paciente..."}
+                </h1>
+                <p className="mt-2 text-lg text-slate-500">
+                  Visão consolidada das informações clínicas do residente
+                </p>
+              </div>
+              
+              {/* Botões de Ação */}
+              {paciente && !editMode && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditMode(true)}
+                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 transition-colors"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Deletar
+                  </button>
+                </div>
+              )}
             </div>
           </header>
 
           {loading ? (
             <div className="flex min-h-[420px] items-center justify-center rounded-[2rem] border border-slate-200 bg-white shadow-sm">
               <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
+            </div>
+          ) : editMode && paciente ? (
+            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-100/50 p-8 md:p-12 border border-slate-100">
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-2">
+                    Editar Prontuário
+                  </h2>
+                  <p className="text-slate-500">
+                    Atualize as informações clínicas do residente
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditMode(false)}
+                  className="rounded-xl px-4 py-2 bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+              
+              <PacienteForm
+                onSubmit={handleEditSubmit}
+                isLoading={editLoading}
+                submitButtonText="Atualizar Dados"
+                initialData={paciente}
+                title=""
+                description=""
+              />
             </div>
           ) : error && !paciente ? (
             <div className="rounded-[2rem] border border-red-200 bg-red-50 p-8 shadow-sm">
@@ -446,6 +561,19 @@ export default function ProntuarioDigitalPage() {
           ) : null}
         </main>
       </div>
+
+      {/* Dialog de Confirmação de Delete */}
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        title="Deletar Paciente?"
+        description={`Tem certeza que deseja deletar ${paciente?.nome}? Esta ação é irreversível e todos os logs serão removidos.`}
+        variant="danger"
+        confirmText="Sim, Deletar"
+        cancelText="Cancelar"
+        isLoading={deleteLoading}
+        onConfirm={handleDeletePaciente}
+        onCancel={() => setDeleteConfirmOpen(false)}
+      />
     </div>
   );
 }
