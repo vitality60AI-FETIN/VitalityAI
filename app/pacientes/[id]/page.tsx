@@ -6,6 +6,7 @@ import { ArrowLeft, Activity, AlertTriangle, CheckCircle2, HeartPulse, Phone, Us
 import { auth, db } from "../../../lib/firebase";
 import { useInstitucaoId } from "../../../lib/hooks";
 import { ACTIVITY_TYPES, ActivityType } from "../../../lib/activityTypes";
+import { normalizeLogRecords } from "../../../lib/logNormalizer";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import PacienteForm, { PacienteFormData } from "../../components/PacienteForm";
@@ -190,11 +191,9 @@ export default function ProntuarioDigitalPage() {
               where("instituicaoId", "==", instituicaoId)
             )
           );
-          const listaLogs: LogRotina[] = [];
-
-          logsSnapshot.forEach((logDoc) => {
-            listaLogs.push({ id: logDoc.id, ...logDoc.data() } as LogRotina);
-          });
+          const listaLogs = normalizeLogRecords(
+            logsSnapshot.docs.map((logDoc) => ({ id: logDoc.id, ...(logDoc.data() as any) }))
+          );
 
           listaLogs.sort((a, b) => {
             const timeA = a.dataHora && typeof a.dataHora.toDate === "function" ? a.dataHora.toDate().getTime() : 0;
@@ -595,7 +594,7 @@ export default function ProntuarioDigitalPage() {
                               {logsVisiveis.map((log) => {
                             const presentation = getLogPresentation(log.tipo);
                             const IconComponent = presentation.icon;
-                            const tituloPrincipal = log.resumo || log.status;
+                            const tituloPrincipal = log.resumo || log.status || log.tipoLabel;
                             const dataExibida = log.dataTurno ? formatarDataTurno(log.dataTurno) : formatarData(log.dataHora);
 
                             return (

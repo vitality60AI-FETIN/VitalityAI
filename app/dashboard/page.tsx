@@ -9,6 +9,7 @@ import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
+import { normalizeLogRecords } from "../../lib/logNormalizer";
 
 interface Paciente {
   id: string;
@@ -72,8 +73,9 @@ export default function DashboardLobby() {
         where("instituicaoId", "==", instituicaoId)
       );
       const unsubLogs = onSnapshot(qLogs, (snap) => {
-        const lista: any[] = [];
-        snap.forEach((d) => lista.push({ id: d.id, ...(d.data() as any) }));
+        const lista = normalizeLogRecords(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
+        );
         setLogs(lista);
 
         // calcular incidentes das últimas 24h (exemplo simples)
