@@ -9,8 +9,11 @@ import {
   Loader2,
   Send
 } from "lucide-react";
-import { auth } from "../../lib/firebase";
+import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { useInstitucaoId } from "../../lib/hooks";
+import { normalizeLogRecords } from "../../lib/logNormalizer";
 
 export default function InsightsPage() {
   const [loading, setLoading] = useState(true);
@@ -18,22 +21,56 @@ export default function InsightsPage() {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [pacientes, setPacientes] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
 
   const router = useRouter();
   const pathname = usePathname();
+  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
       setUserName(user.email?.split("@")[0] || "Cuidador");
-      setLoading(false);
+      
+      if (loadingInstituicao) return;
+      if (!instituicaoId) {
+        router.push("/onboarding");
+        return;
+      }
+
+      const qPacientes = query(collection(db, "Pacientes"), where("instituicaoId", "==", instituicaoId));
+      const unsubPacientes = onSnapshot(qPacientes, (snap) => {
+        const lista: any[] = [];
+        snap.forEach((d) => lista.push({ id: d.id, ...d.data() }));
+        setPacientes(lista);
+        setLoading(false);
+      }, (err) => {
+        console.error(err);
+        setLoading(false);
+      });
+
+      const qLogs = query(collection(db, "LogsRotina"), where("instituicaoId", "==", instituicaoId));
+      const unsubLogs = onSnapshot(qLogs, (snap) => {
+        const lista = normalizeLogRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLogs(lista);
+      }, (err) => console.error(err));
+
+      (unsubscribeAuth as any)._unsubPacientes = unsubPacientes;
+      (unsubscribeAuth as any)._unsubLogs = unsubLogs;
     });
 
-    return () => unsubscribe();
-  }, [router]);
+    return () => {
+      try {
+        if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
+        if ((unsubscribeAuth as any)?._unsubPacientes) (unsubscribeAuth as any)._unsubPacientes();
+        if ((unsubscribeAuth as any)?._unsubLogs) (unsubscribeAuth as any)._unsubLogs();
+      } catch (e) {}
+    };
+  }, [router, instituicaoId, loadingInstituicao]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -52,7 +89,12 @@ export default function InsightsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ 
+          prompt, 
+          mode: "chat",
+          patients: pacientes,
+          logs: logs.slice(0, 50)
+        }),
       });
 
       const data = await res.json();
