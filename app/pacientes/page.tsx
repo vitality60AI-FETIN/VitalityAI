@@ -23,7 +23,7 @@ export default function ProntuariosPage() {
 
   const router = useRouter();
   const pathname = usePathname();
-  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
   const { cuidador, loading: loadingCuidador } = useCuidadorData();
 
   useEffect(() => {
@@ -100,6 +100,7 @@ export default function ProntuariosPage() {
     { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
     { name: "Log de Rotina", path: "/rotina", icon: "📝" },
     { name: "Insights IA", path: "/insights", icon: "🧠" },
+    ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: "👥" }] : []),
   ];
 
   const getStatusColor = (status: string) => {
@@ -155,7 +156,7 @@ export default function ProntuariosPage() {
               <p className="truncate text-sm font-bold text-slate-800">
                 {userName}
               </p>
-              <p className="text-xs text-slate-400">Cuidador</p>
+              <p className="text-xs text-slate-400">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
             </div>
           </div>
           <button

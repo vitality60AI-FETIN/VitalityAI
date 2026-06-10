@@ -32,7 +32,7 @@ export default function DashboardLobby() {
 
   const router = useRouter();
   const pathname = usePathname();
-  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -210,6 +210,7 @@ export default function DashboardLobby() {
     { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
     { name: "Log de Rotina", path: "/rotina", icon: "📝" },
     { name: "Insights IA", path: "/insights", icon: "🧠" },
+    ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: "👥" }] : []),
   ];
 
   return (
@@ -259,7 +260,7 @@ export default function DashboardLobby() {
              </div>
              <div className="truncate text-left flex-1">
                <p className="text-sm font-bold text-slate-800 truncate">{userName}</p>
-               <p className="text-xs text-slate-400">Cuidador</p>
+               <p className="text-xs text-slate-400">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
              </div>
           </div>
           <button 

@@ -57,12 +57,27 @@ export default function Onboarding() {
           return;
         }
 
+        const nomeTratado = nomeInstituicao.trim();
+
+        // Verificar se já existe uma instituição com este nome exato
+        const qExist = query(
+          collection(db, "Instituicoes"),
+          where("nome", "==", nomeTratado)
+        );
+        const snapExist = await getDocs(qExist);
+
+        if (!snapExist.empty) {
+          setError("Já existe uma instituição com este nome. Volte e escolha 'Entrar em Instituição Existente'.");
+          setLoading(false);
+          return;
+        }
+
         // Gerar ID único para a instituição
         const novoInstituicaoId = `inst-${Date.now()}`;
 
         // Criar documento da instituição
         await setDoc(doc(db, "Instituicoes", novoInstituicaoId), {
-          nome: nomeInstituicao,
+          nome: nomeTratado,
           cnpj: cnpjInstituicao || "N/A",
           criadoEm: new Date().toISOString(),
           ativa: true,
@@ -73,21 +88,24 @@ export default function Onboarding() {
         setStep("perfil");
       } else {
         // Entrar em instituição existente
-        if (!codigoInstituicao.trim()) {
+        const codigoTratado = codigoInstituicao.trim();
+
+        if (!codigoTratado) {
           setError("Informe o código da instituição.");
           setLoading(false);
           return;
         }
 
         // Buscar instituição pelo código (simplificado: usaremos o nome)
+        // OBS: FireStore é case-sensitive. O usuário precisa digitar exatamente igual.
         const q = query(
           collection(db, "Instituicoes"),
-          where("nome", "==", codigoInstituicao)
+          where("nome", "==", codigoTratado)
         );
         const snap = await getDocs(q);
 
         if (snap.empty) {
-          setError("Instituição não encontrada. Verifique o código.");
+          setError("Instituição não encontrada. Verifique se o nome está exato (letras maiúsculas e minúsculas importam).");
           setLoading(false);
           return;
         }

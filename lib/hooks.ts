@@ -8,6 +8,7 @@ import { doc, getDoc } from "firebase/firestore";
  */
 export function useInstitucaoId() {
   const [instituicaoId, setInstituicaoId] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,30 +16,34 @@ export function useInstitucaoId() {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         setInstituicaoId(null);
+        setRole(null);
         setLoading(false);
         setError(null);
         return;
       }
 
       try {
-        // Buscar dados do cuidador para pegar instituicaoId
+        // Buscar dados do cuidador para pegar instituicaoId e role
         const cuidadorRef = doc(db, "Cuidadores", user.uid);
         const cuidadorSnap = await getDoc(cuidadorRef);
 
         if (cuidadorSnap.exists()) {
           const data = cuidadorSnap.data();
           setInstituicaoId(data.instituicaoId || null);
+          setRole(data.role || "Cuidador");
           setError(null);
         } else {
           // Novo usuário que ainda não completou onboarding
           // Retorna null, não erro
           setInstituicaoId(null);
+          setRole(null);
           setError(null);
         }
       } catch (err: any) {
-        console.error("Erro ao carregar instituicaoId:", err);
+        console.error("Erro ao carregar instituicaoId/role:", err);
         setError(err.message);
         setInstituicaoId(null);
+        setRole(null);
       } finally {
         setLoading(false);
       }
@@ -47,7 +52,7 @@ export function useInstitucaoId() {
     return () => unsubscribe();
   }, []);
 
-  return { instituicaoId, loading, error };
+  return { instituicaoId, role, loading, error };
 }
 
 /**

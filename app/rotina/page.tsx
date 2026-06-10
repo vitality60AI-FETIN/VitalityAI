@@ -95,7 +95,7 @@ export default function LogRotinaPage() {
 
   const router = useRouter();
   const pathname = usePathname();
-  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -282,6 +282,7 @@ export default function LogRotinaPage() {
     { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
     { name: "Log de Rotina", path: "/rotina", icon: "📝" },
     { name: "Insights IA", path: "/insights", icon: "🧠" },
+    ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: "👥" }] : []),
   ];
 
   const allActivityTypes = useAllActivityTypes();
@@ -324,7 +325,7 @@ export default function LogRotinaPage() {
             </div>
             <div className="min-w-0 flex-1 text-left">
               <p className="truncate text-sm font-bold text-slate-800">{userName}</p>
-              <p className="text-xs text-slate-400">Cuidador</p>
+              <p className="text-xs text-slate-400">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
             </div>
           </div>
           <button
