@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation"; // <-- Adicionado usePathname para saber a rota ativa
-import { Users, AlertTriangle, CheckCircle2, TrendingUp } from "lucide-react";
+import { Users, AlertTriangle, CheckCircle2, TrendingUp, Brain, Sparkles, Loader2 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 
 import { auth, db } from "../../lib/firebase";
@@ -27,6 +27,8 @@ export default function DashboardLobby() {
   const [timeRange, setTimeRange] = useState<'24h' | '7d'>('24h');
   const [typeFilter, setTypeFilter] = useState<'all' | 'alimentacao' | 'hidratacao' | 'medicacao'>('all');
   const [patientFilter, setPatientFilter] = useState('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiReport, setAiReport] = useState<{resumo_geral: string, pontos_atencao: string[], recomendacoes_rotina: string[]} | null>(null);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -115,6 +117,29 @@ export default function DashboardLobby() {
 
   const irParaCadastroPaciente = () => {
     router.push("/pacientes/novo"); 
+  };
+
+  const handleGenerateReport = async () => {
+    if (pacientes.length === 0) return;
+    setIsGeneratingAI(true);
+    try {
+      const res = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patients: pacientes, logs: logs.slice(0, 50) })
+      });
+      const data = await res.json();
+      if (!data.error && data.result) {
+        let raw = data.result;
+        raw = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(raw);
+        setAiReport(parsed);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGeneratingAI(false);
+    }
   };
 
   // dados de risco serão calculados a partir dos logs em tempo real (substitui mocks)
@@ -322,6 +347,72 @@ export default function DashboardLobby() {
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
                   </div>
+                </div>
+              </section>
+
+              {/* Análise Inteligente IA */}
+              <section className="mt-6">
+                <div className="rounded-[2rem] border border-indigo-100 bg-gradient-to-br from-indigo-50 to-purple-50 p-6 shadow-sm shadow-indigo-100/50">
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-xl font-black tracking-tight text-indigo-950 flex items-center gap-2">
+                        <Brain className="h-6 w-6 text-indigo-600" />
+                        Análise de Saúde Geriátrica IA
+                      </h3>
+                      <p className="text-sm text-indigo-700/70 mt-1">
+                        Relatório inteligente baseado nas métricas recentes de todos os pacientes.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleGenerateReport}
+                      disabled={isGeneratingAI || pacientes.length === 0}
+                      className="flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      {isGeneratingAI ? "Analisando dados..." : "Gerar Relatório Inteligente"}
+                    </button>
+                  </div>
+
+                  {aiReport && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="rounded-2xl border border-indigo-200 bg-white p-5 shadow-sm">
+                        <h4 className="text-sm font-bold uppercase tracking-widest text-indigo-400 mb-2">Resumo Geral</h4>
+                        <p className="text-slate-700 leading-relaxed">{aiReport.resumo_geral}</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+                          <h4 className="text-sm font-bold uppercase tracking-widest text-amber-500 mb-3 flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            Pontos de Atenção
+                          </h4>
+                          <ul className="space-y-2">
+                            {aiReport.pontos_atencao?.map((pt, i) => (
+                              <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                                <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0"></div>
+                                <span>{pt}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+                          <h4 className="text-sm font-bold uppercase tracking-widest text-emerald-500 mb-3 flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Recomendações
+                          </h4>
+                          <ul className="space-y-2">
+                            {aiReport.recomendacoes_rotina?.map((rec, i) => (
+                              <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                                <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0"></div>
+                                <span>{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
 
