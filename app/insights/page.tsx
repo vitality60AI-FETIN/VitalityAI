@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import {
   Brain,
   LogOut,
   Sparkles,
   Loader2,
-  Send
+  Send,
+  Clock
 } from "lucide-react";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
 import { useInstitucaoId } from "../../lib/hooks";
 import { normalizeLogRecords } from "../../lib/logNormalizer";
 
@@ -23,6 +25,7 @@ export default function InsightsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -59,8 +62,24 @@ export default function InsightsPage() {
         setLogs(lista);
       }, (err) => console.error(err));
 
+      const qHistory = query(collection(db, "InsightsHistory"), where("instituicaoId", "==", instituicaoId));
+      const unsubHistory = onSnapshot(qHistory, (snap) => {
+        const lista: any[] = [];
+        snap.forEach((d) => lista.push({ id: d.id, ...d.data() }));
+        
+        // Ordenação local para não exigir index composto no Firestore
+        lista.sort((a, b) => {
+          const timeA = a.dataHora?.toMillis ? a.dataHora.toMillis() : 0;
+          const timeB = b.dataHora?.toMillis ? b.dataHora.toMillis() : 0;
+          return timeB - timeA;
+        });
+
+        setHistory(lista);
+      }, (err) => console.error(err));
+
       (unsubscribeAuth as any)._unsubPacientes = unsubPacientes;
       (unsubscribeAuth as any)._unsubLogs = unsubLogs;
+      (unsubscribeAuth as any)._unsubHistory = unsubHistory;
     });
 
     return () => {
@@ -68,6 +87,7 @@ export default function InsightsPage() {
         if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
         if ((unsubscribeAuth as any)?._unsubPacientes) (unsubscribeAuth as any)._unsubPacientes();
         if ((unsubscribeAuth as any)?._unsubLogs) (unsubscribeAuth as any)._unsubLogs();
+        if ((unsubscribeAuth as any)?._unsubHistory) (unsubscribeAuth as any)._unsubHistory();
       } catch (e) {}
     };
   }, [router, instituicaoId, loadingInstituicao]);
@@ -103,6 +123,20 @@ export default function InsightsPage() {
         setResponse(`Erro: ${data.error}`);
       } else {
         setResponse(data.result);
+        const currentUser = auth.currentUser;
+        if (currentUser && instituicaoId) {
+          try {
+            await addDoc(collection(db, "InsightsHistory"), {
+              instituicaoId,
+              cuidadorId: currentUser.uid,
+              pergunta: prompt,
+              resposta: data.result,
+              dataHora: serverTimestamp()
+            });
+          } catch (e) {
+            console.error("Erro ao salvar histórico", e);
+          }
+        }
       }
     } catch (error: any) {
       setResponse("Erro ao conectar com a IA. Tente novamente.");
@@ -221,8 +255,36 @@ export default function InsightsPage() {
                   </div>
                   <h2 className="text-xl font-black text-indigo-950">Resposta da IA</h2>
                 </div>
-                <div className="prose prose-slate max-w-none text-slate-700 whitespace-pre-wrap leading-relaxed">
-                  {response}
+                <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed">
+                  <ReactMarkdown>{response}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+
+            {history.length > 0 && (
+              <div className="mt-8 flex flex-col gap-4">
+                <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Histórico de Consultas
+                </h3>
+                <div className="space-y-4">
+                  {history.map((item) => {
+                    const timeStr = item.dataHora?.toDate ? item.dataHora.toDate().toLocaleString('pt-BR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    }) : 'Agora mesmo';
+                    
+                    return (
+                      <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="flex justify-between items-start mb-3">
+                          <p className="text-sm font-bold text-indigo-700 flex-1">Q: {item.pergunta}</p>
+                          <span className="text-xs text-slate-400 font-medium whitespace-nowrap ml-4">{timeStr}</span>
+                        </div>
+                        <div className="prose prose-sm text-slate-600 max-w-none">
+                          <ReactMarkdown>{item.resposta}</ReactMarkdown>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
