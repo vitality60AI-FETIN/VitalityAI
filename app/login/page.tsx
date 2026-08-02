@@ -1,48 +1,47 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // Hook para navegação
-import { auth } from "@/lib/firebase"; // Importamos o auth já inicializado
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { auth, db, googleProvider } from "@/lib/firebase";
+import { signInWithPopup } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
-export default function Home() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   const router = useRouter();
 
-  // Garante que o componente está montado no cliente para evitar erros de hidratação
   useEffect(() => setMounted(true), []);
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     setLoading(true);
     setError("");
-    
+
     try {
-      if (isLogin) {
-        // LOGIN: Tenta entrar e vai para o Dashboard
-        await signInWithEmailAndPassword(auth, email, password);
-        router.push("/dashboard"); 
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Verifica se o cuidador já completou o onboarding
+      const cuidadorRef = doc(db, "Cuidadores", user.uid);
+      const cuidadorSnap = await getDoc(cuidadorRef);
+
+      if (cuidadorSnap.exists()) {
+        // Já está cadastrado → Dashboard
+        router.push("/dashboard");
       } else {
-        // REGISTO: Cria a conta e vai para o Onboarding completar os dados
-        await createUserWithEmailAndPassword(auth, email, password);
-        router.push("/onboarding"); 
+        // Primeira vez → Onboarding
+        router.push("/onboarding");
       }
     } catch (err: any) {
       console.error(err);
-      if (err.code === "auth/email-already-in-use") {
-        setError("Este e-mail já está a ser utilizado.");
-      } else if (err.code === "auth/weak-password") {
-        setError("A palavra-passe deve ter pelo menos 6 caracteres.");
-      } else if (err.code === "auth/invalid-credential") {
-        setError("E-mail ou palavra-passe incorretos.");
+      if (err.code === "auth/popup-closed-by-user") {
+        setError("Login cancelado. Tente novamente.");
+      } else if (err.code === "auth/account-exists-with-different-credential") {
+        setError("Esta conta já está vinculada a outro método de login.");
       } else {
-        setError("Ocorreu um erro. Verifique os seus dados.");
+        setError("Ocorreu um erro ao entrar com o Google. Tente novamente.");
       }
     } finally {
       setLoading(false);
@@ -77,7 +76,7 @@ export default function Home() {
               <span className="text-3xl group-hover:scale-125 transition-transform">🧘‍♂️</span>
               <div>
                 <h3 className="text-xl font-bold">Digital Caregiver</h3>
-                <p className="text-blue-100/80 text-sm italic">"O mentor que simplifica a rotina diária de cuidados."</p>
+                <p className="text-blue-100/80 text-sm italic">&quot;O mentor que simplifica a rotina diária de cuidados.&quot;</p>
               </div>
             </div>
 
@@ -85,25 +84,25 @@ export default function Home() {
               <span className="text-3xl group-hover:scale-125 transition-transform">🛡️</span>
               <div>
                 <h3 className="text-xl font-bold">Gatilho de Inatividade</h3>
-                <p className="text-blue-100/80 text-sm italic">"Segurança invisível que alerta a família em tempo real."</p>
+                <p className="text-blue-100/80 text-sm italic">&quot;Segurança invisível que alerta a família em tempo real.&quot;</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* LADO DIREITO: LOGIN / REGISTO INTERATIVO */}
+      {/* LADO DIREITO: LOGIN VIA GOOGLE */}
       <div className="flex w-full lg:w-2/5 flex-col items-center justify-center p-8 bg-slate-50">
         <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700">
           
           <div className="bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 p-10 relative overflow-hidden">
             
-            <div className="mb-10">
+            <div className="mb-10 text-center">
               <h2 className="text-3xl font-black text-slate-800 mb-2">
-                {isLogin ? "Bem-vindo" : "Criar Conta"}
+                Bem-vindo
               </h2>
               <p className="text-slate-500 font-medium">
-                {isLogin ? "Aceda ao seu painel de cuidador." : "Registe-se para começar a sua jornada."}
+                Aceda ao seu painel de cuidador.
               </p>
             </div>
 
@@ -113,52 +112,46 @@ export default function Home() {
               </div>
             )}
 
-            <form onSubmit={handleAuth} className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">E-mail Profissional</label>
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
-                  placeholder="exemplo@vitalidade.com"
-                  required 
-                />
-              </div>
+            {/* Botão Google Sign-In */}
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-slate-700 p-5 rounded-2xl font-bold text-lg shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600" />
+              ) : (
+                <svg className="w-6 h-6" viewBox="0 0 24 24">
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                </svg>
+              )}
+              {loading ? "Entrando..." : "Entrar com Google"}
+            </button>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Palavra-passe</label>
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
-                  placeholder="••••••••"
-                  required 
-                />
-              </div>
-
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="w-full bg-blue-600 text-white p-5 rounded-2xl font-black text-lg shadow-xl shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50"
-              >
-                {loading ? "A processar..." : isLogin ? "Entrar no Sistema" : "Solicitar Registo"}
-              </button>
-            </form>
-
-            <div className="mt-10 pt-8 border-t border-slate-50 flex flex-col items-center text-center">
-              <button 
-                onClick={() => { setIsLogin(!isLogin); setError(""); }}
-                className="text-slate-400 font-bold hover:text-blue-600 transition-colors text-sm"
-              >
-                {isLogin ? "Não tem conta? Registe-se agora" : "Já possui conta? Inicie sessão"}
-              </button>
+            <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+              <p className="text-slate-400 text-sm font-medium">
+                Utilize sua conta Google institucional ou pessoal para acessar a plataforma.
+              </p>
             </div>
           </div>
 
           <p className="mt-8 text-center text-slate-400 text-xs font-bold uppercase tracking-tighter">
-            Vitalidade Senior AI • Powered by Gemini & Firebase
+            Vitalidade Senior AI • Powered by Gemini &amp; Firebase
           </p>
         </div>
       </div>

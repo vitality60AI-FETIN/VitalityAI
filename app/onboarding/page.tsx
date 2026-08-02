@@ -6,7 +6,7 @@ import { auth, db } from "../../lib/firebase";
 import { doc, setDoc, addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
-type Step = "instituicao" | "perfil";
+type Step = "instituicao" | "perfil" | "termos";
 type TipoInstituicao = "criar" | "entrar";
 
 export default function Onboarding() {
@@ -24,6 +24,9 @@ export default function Onboarding() {
   const [dataNascimento, setDataNascimento] = useState("");
   const [tipo, setTipo] = useState("Profissional");
   const [whatsapp, setWhatsapp] = useState("");
+
+  // Termos LGPD
+  const [aceitouTermos, setAceitouTermos] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -121,9 +124,26 @@ export default function Onboarding() {
     }
   };
 
-  // PASSO 2: Salvar Perfil do Cuidador
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  // PASSO 2: Validar Perfil e ir para Termos
+  const handleGoToTermos = (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+
+    if (!nome.trim() || !cpf.trim() || !dataNascimento || !whatsapp.trim()) {
+      setError("Preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    setStep("termos");
+  };
+
+  // PASSO 3: Aceitar Termos e Salvar Tudo
+  const handleAcceptAndSave = async () => {
+    if (!aceitouTermos) {
+      setError("Você precisa aceitar os termos para continuar.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -136,7 +156,9 @@ export default function Onboarding() {
     }
 
     try {
-      // Salvar cuidador com instituicaoId
+      const consentimentoTimestamp = new Date().toISOString();
+
+      // Salvar cuidador com instituicaoId + consentimento LGPD
       await setDoc(doc(db, "Cuidadores", user.uid), {
         nomeCompleto: nome,
         cpf: cpf,
@@ -147,7 +169,27 @@ export default function Onboarding() {
         instituicaoId: instituicaoId, // ← MULTI-TENANCY!
         // Definir papel: se criou a instituição, torna-se Admin
         role: tipoInstituicao === "criar" ? "Admin" : "Cuidador",
-        criadoEm: new Date().toISOString(),
+        criadoEm: consentimentoTimestamp,
+        // Registro de consentimento LGPD
+        consentimentoLGPD: {
+          aceito: true,
+          dataAceite: consentimentoTimestamp,
+          versaoTermo: "1.0",
+          uid: user.uid,
+        },
+      });
+
+      // Registro separado na coleção ConsentimentosLGPD para auditoria
+      await addDoc(collection(db, "ConsentimentosLGPD"), {
+        uid: user.uid,
+        email: user.email,
+        nomeCompleto: nome,
+        cpf: cpf,
+        instituicaoId: instituicaoId,
+        aceito: true,
+        dataAceite: consentimentoTimestamp,
+        versaoTermo: "1.0",
+        termoResumo: "Termo de Privacidade e Consentimento para Tratamento de Dados Sensíveis (LGPD) - Vitality60AI",
       });
 
       router.push("/dashboard");
@@ -167,6 +209,9 @@ export default function Onboarding() {
     );
   }
 
+  // Helper: Step indicator
+  const stepNumber = step === "instituicao" ? 1 : step === "perfil" ? 2 : 3;
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 selection:bg-blue-100">
       <div className="w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl shadow-blue-100/50 p-8 lg:p-12 border border-slate-100 animate-in fade-in zoom-in-95 duration-700">
@@ -174,13 +219,41 @@ export default function Onboarding() {
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-2xl font-black text-2xl mb-6 shadow-xl shadow-blue-200">V</div>
           <h1 className="text-3xl font-black text-slate-800 mb-2">
-            {step === "instituicao" ? "Sua Instituição" : "Seu Perfil"}
+            {step === "instituicao" ? "Sua Instituição" : step === "perfil" ? "Seu Perfil" : "Termos de Consentimento"}
           </h1>
           <p className="text-slate-500 font-medium">
             {step === "instituicao"
               ? "Primeira, vamos definir a instituição (asilo, clínica ou unidade de cuidados)."
-              : "Agora complete os seus dados como cuidador."}
+              : step === "perfil"
+              ? "Agora complete os seus dados como cuidador."
+              : "Leia e aceite os termos de privacidade para finalizar."}
           </p>
+
+          {/* Progress indicator */}
+          <div className="flex items-center justify-center gap-2 mt-6">
+            {[1, 2, 3].map((s) => (
+              <div key={s} className="flex items-center gap-2">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-500 ${
+                    s < stepNumber
+                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200"
+                      : s === stepNumber
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-200 scale-110"
+                      : "bg-slate-100 text-slate-400"
+                  }`}
+                >
+                  {s < stepNumber ? "✓" : s}
+                </div>
+                {s < 3 && (
+                  <div
+                    className={`w-12 h-1 rounded-full transition-all duration-500 ${
+                      s < stepNumber ? "bg-emerald-400" : "bg-slate-100"
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         {error && (
@@ -302,7 +375,7 @@ export default function Onboarding() {
 
         {/* PASSO 2: Perfil do Cuidador */}
         {step === "perfil" && (
-          <form onSubmit={handleSaveProfile} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleGoToTermos} className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
                 Nome Completo
@@ -386,12 +459,194 @@ export default function Onboarding() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="px-4 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 disabled:bg-slate-400 transition-all"
+              className="px-4 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all"
             >
-              {loading ? "Salvando..." : "Concluir Onboarding"}
+              Continuar →
             </button>
           </form>
+        )}
+
+        {/* PASSO 3: Termos de Consentimento LGPD */}
+        {step === "termos" && (
+          <div className="space-y-6">
+            {/* Cabeçalho do Termo */}
+            <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+              <div className="flex-shrink-0 w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-blue-800">Proteção de Dados — LGPD</h3>
+                <p className="text-xs text-blue-600 font-medium">Lei nº 13.709/2018 • Versão 1.0</p>
+              </div>
+            </div>
+
+            {/* Corpo do Termo (scrollável) */}
+            <div className="max-h-[420px] overflow-y-auto pr-2 space-y-5 text-sm text-slate-600 leading-relaxed border border-slate-100 rounded-2xl p-6 bg-slate-50/50 scrollbar-thin">
+              
+              <div>
+                <h4 className="text-base font-black text-slate-800 mb-3">
+                  Termo de Privacidade e Consentimento para Tratamento de Dados Sensíveis
+                </h4>
+                <p>
+                  Para garantir a excelência no monitoramento preventivo e a melhoria contínua da qualidade de vida dos residentes cadastrados, nossa plataforma necessita processar informações específicas de saúde. Em conformidade com a <strong>Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018)</strong>, solicitamos o seu consentimento expresso.
+                </p>
+              </div>
+
+              {/* Seção 1 */}
+              <div className="border-t border-slate-200 pt-4">
+                <h5 className="font-black text-slate-700 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-blue-100 text-blue-700 text-xs font-black">1</span>
+                  Quais dados são coletados?
+                </h5>
+                <p className="mb-2">Durante o uso da plataforma, coletamos e processamos as seguintes categorias de dados:</p>
+                <ul className="space-y-2 ml-1">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span><strong>Dados Cadastrais e Clínicos:</strong> Informações básicas de identificação, histórico médico e patologias preexistentes.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span><strong>Dados Fisiológicos e Biomecânicos:</strong> Padrões de marcha, mobilidade e métricas físicas coletadas automaticamente por meio de sensores, câmeras ou dispositivos vestíveis (smartwatches).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span><strong>Dados Nutricionais e Comportamentais:</strong> Registros de alimentação, hidratação, padrões de sono, oscilações de humor e interações sociais inseridos pela equipe técnica ou cuidadores.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Seção 2 */}
+              <div className="border-t border-slate-200 pt-4">
+                <h5 className="font-black text-slate-700 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-blue-100 text-blue-700 text-xs font-black">2</span>
+                  Qual a finalidade do tratamento?
+                </h5>
+                <p className="mb-2">
+                  Os dados coletados são classificados como <strong>sensíveis</strong> e serão utilizados exclusivamente para fins de <strong>prevenção à saúde e assistência clínica</strong>. O processamento é realizado por nossa Inteligência Artificial com o objetivo de:
+                </p>
+                <ul className="space-y-2 ml-1">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span>Gerar análises preditivas sobre o estado de saúde do idoso.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span>Emitir alertas automatizados de risco (como prevenção de quedas, desidratação ou declínio cognitivo) para a equipe técnica.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span>Auxiliar os profissionais da instituição na personalização de rotinas, dietas e exercícios.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Seção 3 */}
+              <div className="border-t border-slate-200 pt-4">
+                <h5 className="font-black text-slate-700 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-blue-100 text-blue-700 text-xs font-black">3</span>
+                  Armazenamento e Compartilhamento
+                </h5>
+                <p className="mb-2">
+                  A segurança dos seus dados é nossa prioridade. As informações são armazenadas em <strong>infraestrutura de nuvem segura e criptografada (Firebase)</strong>.
+                </p>
+                <ul className="space-y-2 ml-1">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                    <span><strong>Acesso Restrito:</strong> Apenas profissionais de saúde e cuidadores devidamente autorizados pela instituição terão acesso aos relatórios e prontuários gerados.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                    <span><strong>Privacidade:</strong> Sob nenhuma circunstância os dados serão comercializados, cedidos ou compartilhados com terceiros para fins publicitários ou que não tenham relação direta com o cuidado do paciente.</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Seção 4 */}
+              <div className="border-t border-slate-200 pt-4">
+                <h5 className="font-black text-slate-700 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-blue-100 text-blue-700 text-xs font-black">4</span>
+                  Direitos do Titular
+                </h5>
+                <p className="mb-2">
+                  Como titular dos dados (ou seu representante legal), você possui o direito, a qualquer momento e mediante requisição, de:
+                </p>
+                <ul className="space-y-2 ml-1">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-violet-400"></span>
+                    <span>Solicitar o acesso, a confirmação ou a correção de dados incompletos ou desatualizados.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-violet-400"></span>
+                    <span>Revogar este consentimento, o que implicará na interrupção do monitoramento preditivo e na anonimização ou exclusão definitiva dos dados históricos da nossa base, ressalvadas as obrigações legais de retenção por parte da instituição de saúde.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Checkbox de Consentimento */}
+            <div
+              onClick={() => setAceitouTermos(!aceitouTermos)}
+              className={`flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 select-none ${
+                aceitouTermos
+                  ? "border-emerald-400 bg-emerald-50/80 shadow-lg shadow-emerald-100"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              <div className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 mt-0.5 ${
+                aceitouTermos
+                  ? "bg-emerald-500 border-emerald-500 scale-110"
+                  : "border-slate-300 bg-white"
+              }`}>
+                {aceitouTermos && (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <p className={`text-sm font-bold leading-snug transition-colors ${
+                  aceitouTermos ? "text-emerald-800" : "text-slate-700"
+                }`}>
+                  Declaração de Consentimento
+                </p>
+                <p className={`text-xs mt-1 leading-relaxed transition-colors ${
+                  aceitouTermos ? "text-emerald-600" : "text-slate-500"
+                }`}>
+                  Declaro que li, compreendi e consinto expressamente com a coleta e o tratamento dos dados pessoais e dados sensíveis de saúde, nos termos descritos acima, para viabilizar o funcionamento da plataforma.
+                </p>
+              </div>
+            </div>
+
+            {/* Botões */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("perfil");
+                  setAceitouTermos(false);
+                  setError("");
+                }}
+                className="flex-1 px-4 py-3 text-slate-600 font-bold border-2 border-slate-200 rounded-2xl hover:bg-slate-50 transition-all"
+              >
+                ← Voltar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAcceptAndSave}
+                disabled={!aceitouTermos || loading}
+                className={`flex-1 px-4 py-3 font-bold rounded-2xl transition-all duration-300 ${
+                  aceitouTermos
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 hover:-translate-y-0.5"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                {loading ? "Finalizando..." : "Aceitar e Concluir ✓"}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
