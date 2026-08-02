@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ──────────────────────────────────────────────
+    // HELPERS
+    // ──────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Retorna o documento do cuidador logado
+    function getCuidador() {
+      return get(/databases/$(database)/documents/Cuidadores/$(request.auth.uid));
+    }
+
+    // Retorna o instituicaoId do cuidador logado
+    function userInstituicaoId() {
+      return getCuidador().data.instituicaoId;
+    }
+
+    // Verifica se o cuidador logado é Admin
+    function isAdmin() {
+      return getCuidador().data.role == "Admin";
+    }
+
+    // ──────────────────────────────────────────────
+    // INSTITUIÇÕES
+    // ──────────────────────────────────────────────
+    // • Qualquer autenticado pode ler (necessário durante onboarding para buscar por nome)
+    // • Qualquer autenticado pode criar (necessário para criar nova instituição no onboarding)
+    // • Apenas Admin da própria instituição pode atualizar
+    // • Exclusão bloqueada
+    match /Instituicoes/{instId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && userInstituicaoId() == instId && isAdmin();
+      allow delete: if false;
+    }
+
+    // ──────────────────────────────────────────────
+    // CUIDADORES (perfil dos usuários)
+    // ──────────────────────────────────────────────
+    // • Usuário sempre pode ler/criar seu próprio documento (onboarding + hooks)
+    // • Membros da mesma instituição podem ler (página Equipe)
+    // • Apenas o próprio usuário ou Admin da mesma instituição pode atualizar (troca de role)
+    // • Exclusão bloqueada
+    match /Cuidadores/{cuidadorId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == cuidadorId ||
+        resource.data.instituicaoId == userInstituicaoId()
+      );
+
+      allow create: if isAuthenticated() && request.auth.uid == cuidadorId;
+
+      allow update: if isAuthenticated() && (
+        request.auth.uid == cuidadorId ||
+        (resource.data.instituicaoId == userInstituicaoId() && isAdmin())
+      );
+
+      allow delete: if false;
+    }
+
+    // ──────────────────────────────────────────────
+    // PACIENTES (prontuários)
+    // ──────────────────────────────────────────────
+    // • Leitura, atualização e exclusão: apenas cuidadores da mesma instituição
+    // • Criação: apenas se o instituicaoId do novo documento bate com o do cuidador
+    match /Pacientes/{pacienteId} {
+      allow read, update, delete: if isAuthenticated()
+        && resource.data.instituicaoId == userInstituicaoId();
+
+      allow create: if isAuthenticated()
+        && request.resource.data.instituicaoId == userInstituicaoId();
+    }
+
+    // ──────────────────────────────────────────────
+    // LOGS DE ROTINA
+    // ──────────────────────────────────────────────
+    // • Mesma lógica de isolamento por instituição
+    match /LogsRotina/{logId} {
+      allow read, update, delete: if isAuthenticated()
+        && resource.data.instituicaoId == userInstituicaoId();
+
+      allow create: if isAuthenticated()
+        && request.resource.data.instituicaoId == userInstituicaoId();
+    }
+
+    // ──────────────────────────────────────────────
+    // CONSENTIMENTOS LGPD (auditoria)
+    // ──────────────────────────────────────────────
+    // • Criação: apenas o próprio usuário pode registrar seu consentimento
+    // • Leitura: cuidadores da mesma instituição (para auditoria)
+    // • Atualização e exclusão: bloqueados (registro imutável)
+    match /ConsentimentosLGPD/{consentId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.uid == request.auth.uid;
+
+      allow read: if isAuthenticated()
+        && resource.data.instituicaoId == userInstituicaoId();
+
+      allow update, delete: if false;
+    }
+
+    // ──────────────────────────────────────────────
+    // HISTÓRICO DE INSIGHTS IA
+    // ──────────────────────────────────────────────
+    // • Leitura: cuidadores da mesma instituição
+    // • Criação: apenas se o instituicaoId bate
+    // • Atualização e exclusão: bloqueados
+    match /InsightsHistory/{insightId} {
+      allow read: if isAuthenticated()
+        && resource.data.instituicaoId == userInstituicaoId();
+
+      allow create: if isAuthenticated()
+        && request.resource.data.instituicaoId == userInstituicaoId();
+
+      allow update, delete: if false;
+    }
+
+    // ──────────────────────────────────────────────
+    // REGRA PADRÃO: negar tudo o que não foi coberto
+    // ──────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
