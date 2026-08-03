@@ -104,10 +104,12 @@ export default function InsightsPage() {
     setResponse("");
 
     try {
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/insights", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({ 
           prompt, 

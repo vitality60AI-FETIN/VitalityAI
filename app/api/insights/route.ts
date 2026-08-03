@@ -1,8 +1,31 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { NextResponse } from 'next/server';
+import { adminAuth } from '@/lib/firebaseAdmin';
 
 export async function POST(req: Request) {
   try {
+    // ─── VERIFICAÇÃO DE AUTENTICAÇÃO ───
+    const authHeader = req.headers.get('authorization');
+
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Não autorizado. Token de autenticação ausente.' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+
+    try {
+      await adminAuth.verifyIdToken(token);
+    } catch {
+      return NextResponse.json(
+        { error: 'Token inválido ou expirado. Faça login novamente.' },
+        { status: 401 }
+      );
+    }
+
+    // ─── LÓGICA DA IA (inalterada) ───
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const body = await req.json();
     const { prompt, patients, logs, mode } = body;

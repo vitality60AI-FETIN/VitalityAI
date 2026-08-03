@@ -123,9 +123,13 @@ export default function DashboardLobby() {
     if (pacientes.length === 0) return;
     setIsGeneratingAI(true);
     try {
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/insights", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify({ patients: pacientes, logs: logs.slice(0, 50) })
       });
       const data = await res.json();
