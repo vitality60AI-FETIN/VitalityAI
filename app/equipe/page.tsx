@@ -8,6 +8,16 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from "firebase/firestore";
 import { useInstitucaoId } from "../../lib/hooks";
 
+/** Gera um código de convite curto de 6 caracteres alfanuméricos */
+function gerarCodigoConvite(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let codigo = "";
+  for (let i = 0; i < 6; i++) {
+    codigo += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return codigo;
+}
+
 interface Membro {
   id: string;
   nomeCompleto: string;
@@ -29,6 +39,7 @@ export default function EquipePage() {
   const [membros, setMembros] = useState<Membro[]>([]);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [instituicaoNome, setInstituicaoNome] = useState<string>("");
+  const [codigoConvite, setCodigoConvite] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
   const router = useRouter();
@@ -60,7 +71,17 @@ export default function EquipePage() {
         const instRef = doc(db, "Instituicoes", instituicaoId);
         const instSnap = await getDoc(instRef);
         if (instSnap.exists()) {
-          setInstituicaoNome(instSnap.data().nome || instituicaoId);
+          const instData = instSnap.data();
+          setInstituicaoNome(instData.nome || instituicaoId);
+
+          // Migração automática: se não tem codigoConvite, gera um
+          if (instData.codigoConvite) {
+            setCodigoConvite(instData.codigoConvite);
+          } else {
+            const novoCodigo = gerarCodigoConvite();
+            await updateDoc(instRef, { codigoConvite: novoCodigo });
+            setCodigoConvite(novoCodigo);
+          }
         }
 
         // Buscar todos os cuidadores/admins desta instituição
@@ -123,7 +144,7 @@ export default function EquipePage() {
   };
 
   const copiarCodigo = () => {
-    navigator.clipboard.writeText(instituicaoNome);
+    navigator.clipboard.writeText(codigoConvite);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -230,7 +251,7 @@ export default function EquipePage() {
                 
                 <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-blue-100 shadow-sm self-start md:self-center">
                   <div className="px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="font-bold text-slate-800 tracking-wider font-mono text-lg">{instituicaoNome}</span>
+                    <span className="font-bold text-slate-800 tracking-[0.3em] font-mono text-lg">{codigoConvite}</span>
                   </div>
                   <button 
                     onClick={copiarCodigo}

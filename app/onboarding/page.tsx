@@ -9,6 +9,16 @@ import { onAuthStateChanged } from "firebase/auth";
 type Step = "instituicao" | "perfil" | "termos";
 type TipoInstituicao = "criar" | "entrar";
 
+/** Gera um código de convite curto de 6 caracteres alfanuméricos (ex: A3F92B) */
+function gerarCodigoConvite(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Sem 0/O/1/I para evitar confusão visual
+  let codigo = "";
+  for (let i = 0; i < 6; i++) {
+    codigo += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return codigo;
+}
+
 export default function Onboarding() {
   const [step, setStep] = useState<Step>("instituicao");
   const [tipoInstituicao, setTipoInstituicao] = useState<TipoInstituicao | null>(null);
@@ -17,6 +27,7 @@ export default function Onboarding() {
   const [nomeInstituicao, setNomeInstituicao] = useState("");
   const [cnpjInstituicao, setCnpjInstituicao] = useState("");
   const [codigoInstituicao, setCodigoInstituicao] = useState("");
+  const [codigoGerado, setCodigoGerado] = useState<string | null>(null);
   
   // Dados do Cuidador
   const [nome, setNome] = useState("");
@@ -75,40 +86,43 @@ export default function Onboarding() {
           return;
         }
 
-        // Gerar ID único para a instituição
+        // Gerar ID único e código de convite para a instituição
         const novoInstituicaoId = `inst-${Date.now()}`;
+        const novoCodigo = gerarCodigoConvite();
 
-        // Criar documento da instituição
+        // Criar documento da instituição com código de convite
         await setDoc(doc(db, "Instituicoes", novoInstituicaoId), {
           nome: nomeTratado,
           cnpj: cnpjInstituicao || "N/A",
+          codigoConvite: novoCodigo,
           criadoEm: new Date().toISOString(),
           ativa: true,
           criadoPorUid: auth.currentUser?.uid,
         });
 
+        setCodigoGerado(novoCodigo);
+
         setInstituicaoId(novoInstituicaoId);
         setStep("perfil");
       } else {
-        // Entrar em instituição existente
-        const codigoTratado = codigoInstituicao.trim();
+        // Entrar em instituição existente via código de convite
+        const codigoTratado = codigoInstituicao.trim().toUpperCase();
 
         if (!codigoTratado) {
-          setError("Informe o código da instituição.");
+          setError("Informe o código de convite da instituição.");
           setLoading(false);
           return;
         }
 
-        // Buscar instituição pelo código (simplificado: usaremos o nome)
-        // OBS: FireStore é case-sensitive. O usuário precisa digitar exatamente igual.
+        // Buscar instituição pelo código de convite (case-insensitive via toUpperCase)
         const q = query(
           collection(db, "Instituicoes"),
-          where("nome", "==", codigoTratado)
+          where("codigoConvite", "==", codigoTratado)
         );
         const snap = await getDocs(q);
 
         if (snap.empty) {
-          setError("Instituição não encontrada. Verifique se o nome está exato (letras maiúsculas e minúsculas importam).");
+          setError("Código de convite não encontrado. Verifique com o administrador da instituição.");
           setLoading(false);
           return;
         }
@@ -339,18 +353,19 @@ export default function Onboarding() {
           <form onSubmit={handleInstituicao} className="space-y-6">
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
-                Código da Instituição
+                Código de Convite
               </label>
               <input
                 type="text"
                 required
                 value={codigoInstituicao}
-                onChange={(e) => setCodigoInstituicao(e.target.value)}
-                placeholder="Informe o nome da instituição"
-                className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                onChange={(e) => setCodigoInstituicao(e.target.value.toUpperCase())}
+                placeholder="Ex: A3F92B"
+                maxLength={6}
+                className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-medium font-mono text-lg tracking-[0.3em] text-slate-700 text-center uppercase"
               />
               <p className="text-xs text-slate-500 mt-2">
-                Peça o nome da instituição ao seu administrador
+                Peça o código de 6 caracteres ao administrador da instituição
               </p>
             </div>
 
