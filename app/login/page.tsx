@@ -54,37 +54,43 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col lg:flex-row bg-[#fdfdfd] overflow-hidden">
       
       {/* LADO ESQUERDO: APRESENTAÇÃO (ESTILO ENTERPRISE) */}
-      <div className="relative flex w-full lg:w-3/5 flex-col justify-center p-12 lg:p-24 bg-linear-to-br from-blue-700 via-blue-600 to-indigo-800 text-white">
+      <div className="relative flex w-full lg:w-3/5 flex-col justify-center p-12 lg:p-24 bg-gradient-to-br from-blue-700 to-blue-900 text-white">
         
         {/* Elementos Visuais de Fundo */}
         <div className="absolute top-[-10%] left-[-10%] w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-[-5%] right-[5%] w-64 h-64 bg-blue-400/20 rounded-full blur-3xl" />
 
-        <div className="relative z-10 max-w-xl animate-in fade-in slide-in-from-left-8 duration-1000">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-700 font-black text-2xl shadow-2xl">V</div>
-            <span className="text-2xl font-bold tracking-tight">Vitalidade Senior AI</span>
+        <div className="relative z-10 max-w-xl animate-in fade-in slide-in-from-left-4 duration-700">
+          <div className="flex items-center gap-3 mb-10 cursor-default">
+            <div className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center text-white shadow-xl">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 5l7 14 7-14" /></svg>
+            </div>
+            <span className="text-2xl font-semibold tracking-tight">Vitalidade Senior <span className="text-blue-300 text-lg font-black italic">AI</span></span>
           </div>
 
-          <h1 className="text-5xl lg:text-6xl font-black leading-[1.1] mb-8 tracking-tighter">
+          <h1 className="text-5xl lg:text-7xl font-extrabold leading-[1.1] mb-8 tracking-tight">
             Longevidade na <br /> 
-            <span className="text-blue-200">Palma da Mão.</span>
+            <span className="text-blue-300">Palma da Mão.</span>
           </h1>
 
-          <div className="space-y-8 mt-12">
-            <div className="group flex items-start gap-5 p-4 rounded-2xl hover:bg-white/5 transition-all">
-              <span className="text-3xl group-hover:scale-125 transition-transform">🧘‍♂️</span>
+          <div className="space-y-6 mt-12">
+            <div className="group flex items-start gap-5 p-5 rounded-3xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all cursor-default">
+              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-blue-200 shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM12 10.5c-2.5 0-4.5 1.5-5.5 4l1 7 4.5-3 4.5 3 1-7c-1-2.5-3-4-5.5-4z" /></svg>
+              </div>
               <div>
-                <h3 className="text-xl font-bold">Digital Caregiver</h3>
-                <p className="text-blue-100/80 text-sm italic">&quot;O mentor que simplifica a rotina diária de cuidados.&quot;</p>
+                <h3 className="text-xl font-semibold mb-1">Cuidador Digital Personalizado</h3>
+                <p className="text-blue-100/80 leading-[1.6]">O mentor que simplifica a rotina diária de cuidados físicos e mentais.</p>
               </div>
             </div>
 
-            <div className="group flex items-start gap-5 p-4 rounded-2xl hover:bg-white/5 transition-all">
-              <span className="text-3xl group-hover:scale-125 transition-transform">🛡️</span>
+            <div className="group flex items-start gap-5 p-5 rounded-3xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all cursor-default">
+              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-blue-200 shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              </div>
               <div>
-                <h3 className="text-xl font-bold">Gatilho de Inatividade</h3>
-                <p className="text-blue-100/80 text-sm italic">&quot;Segurança invisível que alerta a família em tempo real.&quot;</p>
+                <h3 className="text-xl font-semibold mb-1">Rede de Segurança Ativa</h3>
+                <p className="text-blue-100/80 leading-[1.6]">Segurança invisível que monitora inatividade e alerta a família em tempo real.</p>
               </div>
             </div>
           </div>
@@ -95,19 +101,19 @@ export default function LoginPage() {
       <div className="flex w-full lg:w-2/5 flex-col items-center justify-center p-8 bg-slate-50">
         <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700">
           
-          <div className="bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 p-10 relative overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200/60 p-10 relative overflow-hidden">
             
             <div className="mb-10 text-center">
-              <h2 className="text-3xl font-black text-slate-800 mb-2">
+              <h2 className="text-3xl font-extrabold text-slate-800 mb-2">
                 Bem-vindo
               </h2>
-              <p className="text-slate-500 font-medium">
-                Aceda ao seu painel de cuidador.
+              <p className="text-slate-600 font-normal">
+                Acesse o painel do cuidador.
               </p>
             </div>
 
             {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 text-sm font-bold border border-red-100">
+              <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 text-sm font-semibold border border-red-100">
                 ⚠️ {error}
               </div>
             )}
@@ -116,7 +122,7 @@ export default function LoginPage() {
             <button
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 text-slate-700 p-5 rounded-2xl font-bold text-lg shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 p-4 rounded-2xl font-bold text-lg shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600" />
