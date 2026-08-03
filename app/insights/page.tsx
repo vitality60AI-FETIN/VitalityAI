@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import DashboardLayout from "../components/DashboardLayout";
 import {
   Brain,
-  LogOut,
   Sparkles,
   Loader2,
   Send,
@@ -28,7 +28,6 @@ export default function InsightsPage() {
   const [history, setHistory] = useState<any[]>([]);
 
   const router = useRouter();
-  const pathname = usePathname();
   const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
 
   useEffect(() => {
@@ -37,7 +36,6 @@ export default function InsightsPage() {
         router.push("/login");
         return;
       }
-      setUserName(user.email?.split("@")[0] || "Cuidador");
       
       if (loadingInstituicao) return;
       if (!instituicaoId) {
@@ -91,11 +89,6 @@ export default function InsightsPage() {
       } catch (e) {}
     };
   }, [router, instituicaoId, loadingInstituicao]);
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/");
-  };
 
   const handleGenerateInsight = async () => {
     if (!prompt.trim()) return;
@@ -155,67 +148,9 @@ export default function InsightsPage() {
     );
   }
 
-  const menuItems = [
-    { name: "Painel Geral", path: "/dashboard", icon: "📊" },
-    { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
-    { name: "Log de Rotina", path: "/rotina", icon: "📝" },
-    { name: "Insights IA", path: "/insights", icon: "🧠" },
-    ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: "👥" }] : []),
-  ];
-
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
-      <aside className="hidden w-64 flex-col justify-between border-r border-slate-200 bg-white shadow-sm z-10 md:flex">
-        <div>
-          <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-700 font-black text-white shadow-md shadow-indigo-200">
-              V
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-800">Vitality AI</span>
-          </div>
-
-          <nav className="space-y-2 p-4">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.path;
-
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => router.push(item.path)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                    isActive ? "bg-indigo-50 font-bold text-indigo-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  {item.name}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="border-t border-slate-100 p-4">
-          <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-bold uppercase text-indigo-700">
-              {userName.charAt(0)}
-            </div>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate text-sm font-bold text-slate-800">{userName}</p>
-              <p className="text-xs text-slate-400">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-          >
-            <LogOut className="h-4 w-4" />
-            Encerrar Sessão
-          </button>
-        </div>
-      </aside>
-
-      <div className="relative flex-1 flex-col overflow-y-auto">
-        <main className="mx-auto w-full max-w-5xl px-6 py-10">
+    <DashboardLayout>
+        <main className="mx-auto w-full max-w-5xl">
           <header className="mb-10 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
               <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-indigo-700">
@@ -293,7 +228,6 @@ export default function InsightsPage() {
             )}
           </div>
         </main>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }

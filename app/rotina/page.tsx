@@ -6,11 +6,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   History,
-  LogOut,
   Sparkles,
   StickyNote,
   Waves,
 } from "lucide-react";
+import DashboardLayout from "../components/DashboardLayout";
 import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -94,8 +94,7 @@ export default function LogRotinaPage() {
   const [salvandoTurno, setSalvandoTurno] = useState(false);
 
   const router = useRouter();
-  const pathname = usePathname();
-  const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -103,8 +102,6 @@ export default function LogRotinaPage() {
         router.push("/login");
         return;
       }
-
-      setUserName(user.email?.split("@")[0] || "Cuidador");
       
       // Ainda carregando instituicaoId
       if (loadingInstituicao) {
@@ -151,11 +148,6 @@ export default function LogRotinaPage() {
 
     return () => window.clearTimeout(timeoutId);
   }, [toast]);
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/");
-  };
 
   const irParaCadastroPaciente = () => {
     router.push("/pacientes/novo");
@@ -277,68 +269,10 @@ export default function LogRotinaPage() {
     );
   }
 
-  const menuItems = [
-    { name: "Painel Geral", path: "/dashboard", icon: "📊" },
-    { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
-    { name: "Log de Rotina", path: "/rotina", icon: "📝" },
-    { name: "Insights IA", path: "/insights", icon: "🧠" },
-    ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: "👥" }] : []),
-  ];
-
   const allActivityTypes = useAllActivityTypes();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
-      <aside className="hidden w-64 flex-col justify-between border-r border-slate-200 bg-white shadow-sm z-10 md:flex">
-        <div>
-          <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 font-black text-white shadow-md shadow-blue-200">
-              V
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-800">Vitality AI</span>
-          </div>
-
-          <nav className="space-y-2 p-4">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.path;
-
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => router.push(item.path)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                    isActive ? "bg-blue-50 font-bold text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  {item.name}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="border-t border-slate-100 p-4">
-          <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold uppercase text-blue-700">
-              {userName.charAt(0)}
-            </div>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate text-sm font-bold text-slate-800">{userName}</p>
-              <p className="text-xs text-slate-400">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-          >
-            <LogOut className="h-4 w-4" />
-            Encerrar Sessão
-          </button>
-        </div>
-      </aside>
-
-      <div className="relative flex-1 flex-col overflow-y-auto">
+    <DashboardLayout>
         {toast ? (
           <div className="pointer-events-none fixed right-4 top-4 z-50">
             <div
@@ -353,17 +287,6 @@ export default function LogRotinaPage() {
             </div>
           </div>
         ) : null}
-
-        <nav className="sticky top-0 z-40 flex items-center justify-end border-b border-slate-200/50 bg-white/75 px-6 py-4 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={irParaCadastroPaciente}
-              className="hidden rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-blue-200 transition-all hover:bg-blue-700 sm:block"
-            >
-              + Novo Paciente
-            </button>
-          </div>
-        </nav>
 
         <main className="mx-auto w-full max-w-7xl px-6 py-10">
           <header className="mb-10 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 lg:flex-row lg:items-end lg:justify-between">
@@ -578,7 +501,6 @@ export default function LogRotinaPage() {
             </div>
           ) : null}
         </ConfirmDialog>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }
