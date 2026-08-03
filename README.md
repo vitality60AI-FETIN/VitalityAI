@@ -20,7 +20,7 @@ Diferente de rotinas estáticas, nossa **Hiper-personalização Contextual** ada
 
 ## 🛠️ Stack Tecnológica
 * **Front-End:** React.js / Next.js (Estrutura **PWA**).
-* **Backend-as-a-Service:** Firebase / Supabase.
+* **Backend-as-a-Service:** Firebase
 * **Engine de IA:** Google Gemini API.
 
 ---
