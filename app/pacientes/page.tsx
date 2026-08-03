@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, LogOut, FileText } from "lucide-react";
+import { Search, LogOut, FileText, ArrowRight, UserPlus } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId, useCuidadorData } from "../../lib/hooks";
@@ -123,77 +123,84 @@ export default function ProntuariosPage() {
             </div>
           </header>
 
-          <div className="mb-8">
-            <div className="relative">
-              <Search className="absolute left-4 top-4 h-5 w-5 text-slate-400" />
+          <div className="mb-10">
+            <div className="group relative flex items-center rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm shadow-slate-100 transition-all focus-within:border-blue-400 focus-within:shadow-md focus-within:shadow-blue-100/50 hover:border-blue-200">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.5rem] bg-slate-50 text-slate-400 transition-colors group-focus-within:bg-blue-50 group-focus-within:text-blue-600">
+                <Search className="h-5 w-5" />
+              </div>
               <input
                 type="text"
                 placeholder="Buscar residente pelo nome..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-2xl border-2 border-slate-200 bg-white py-3 pl-12 pr-4 text-sm font-medium placeholder-slate-400 outline-none transition-colors focus:border-blue-500"
+                className="w-full bg-transparent px-4 py-3 text-base font-medium text-slate-800 placeholder-slate-400 outline-none"
               />
             </div>
           </div>
 
           {pacientesFiltrados.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                <FileText className="h-7 w-7" />
+            <div className="flex flex-col items-center justify-center rounded-[3rem] border border-dashed border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-slate-50 text-slate-400 shadow-inner">
+                <Search className="h-8 w-8" />
               </div>
-              <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">
+              <h2 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
                 Nenhum prontuário encontrado
               </h2>
-              <p className="mt-2 text-slate-500">
+              <p className="mt-3 max-w-md text-base text-slate-500 leading-relaxed">
                 {pacientes.length === 0
-                  ? "Nenhum residente cadastrado. Clique no botão ao lado para cadastrar um novo."
-                  : "Nenhum prontuário corresponde à sua busca."}
+                  ? "Sua instituição ainda não possui residentes cadastrados. Inicie cadastrando o primeiro."
+                  : "Não encontramos nenhum residente correspondente à sua busca. Tente outro termo."}
               </p>
               {pacientes.length === 0 && (
                 <button
                   onClick={irParaCadastroPaciente}
-                  className="mt-6 rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-blue-200 transition-all hover:bg-blue-700"
+                  className="mt-8 group flex items-center gap-3 rounded-full bg-blue-600 px-8 py-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/30"
                 >
-                  + Cadastrar Primeiro Residente
+                  <UserPlus className="h-5 w-5" />
+                  Cadastrar Primeiro Residente
                 </button>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {pacientesFiltrados.map((paciente) => (
                 <button
                   key={paciente.id}
                   onClick={() => abrirProntuario(paciente.id)}
-                  className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-100 transition-all hover:shadow-xl hover:border-blue-200 hover:-translate-y-1"
+                  className="group relative flex w-full flex-col overflow-hidden rounded-[2.5rem] border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/30 transition-all duration-300 hover:-translate-y-1.5 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 text-left"
                 >
-                  <div className="p-6">
-                    <div className="flex items-start justify-between gap-4 mb-5">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 text-2xl font-black text-blue-700 group-hover:scale-110 transition-transform duration-300">
-                        {paciente.nome.charAt(0)}
-                      </div>
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-bold ${getStatusColor(
-                          paciente.statusSeguranca
-                        )}`}
-                      >
-                        {paciente.statusSeguranca === "Verde"
-                          ? "Seguro"
-                          : paciente.statusSeguranca === "Amarelo"
-                            ? "Atenção"
-                            : "Alerta"}
-                      </span>
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
+                  
+                  <div className="relative z-10 flex w-full items-start justify-between gap-4 mb-6">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.25rem] bg-slate-50 text-2xl font-black text-slate-500 shadow-sm shadow-slate-200/50 transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-blue-200">
+                      {paciente.nome.charAt(0)}
                     </div>
+                    <span
+                      className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${getStatusColor(
+                        paciente.statusSeguranca
+                      )}`}
+                    >
+                      {paciente.statusSeguranca === "Verde"
+                        ? "Seguro"
+                        : paciente.statusSeguranca === "Amarelo"
+                          ? "Atenção"
+                          : "Alerta"}
+                    </span>
+                  </div>
 
-                    <h3 className="text-xl font-black tracking-tight text-slate-900 mb-1 group-hover:text-blue-600 transition-colors text-left">
+                  <div className="relative z-10 mb-6">
+                    <h3 className="text-xl font-black tracking-tight text-slate-800 transition-colors group-hover:text-blue-700">
                       {paciente.nome}
                     </h3>
-                    <p className="text-sm font-medium text-slate-500 text-left mb-5">
+                    <p className="mt-1 text-sm font-medium text-slate-500">
                       {paciente.idade} anos
                     </p>
+                  </div>
 
-                    <div className="flex items-center justify-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      <FileText className="h-4 w-4" />
-                      Abrir Prontuário
+                  <div className="relative z-10 mt-auto flex w-full items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/50 px-5 py-4 transition-colors duration-300 group-hover:border-blue-100 group-hover:bg-white">
+                    <span className="text-sm font-bold text-slate-600 transition-colors group-hover:text-blue-700">Acessar Prontuário</span>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm transition-all duration-300 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:translate-x-1">
+                      <ArrowRight className="h-4 w-4" />
                     </div>
                   </div>
                 </button>

@@ -9,6 +9,7 @@ import {
   Sparkles,
   StickyNote,
   Waves,
+  Search,
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import { auth, db } from "../../lib/firebase";
@@ -329,13 +330,19 @@ export default function LogRotinaPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="mb-2">
-                <input
-                  placeholder="Buscar residente..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                />
+              <div className="mb-6">
+                <div className="group relative flex items-center rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm shadow-slate-100 transition-all focus-within:border-blue-400 focus-within:shadow-md focus-within:shadow-blue-100/50 hover:border-blue-200">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.5rem] bg-slate-50 text-slate-400 transition-colors group-focus-within:bg-blue-50 group-focus-within:text-blue-600">
+                    <Search className="h-5 w-5" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Buscar residente pelo nome..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-transparent px-4 py-3 text-base font-medium text-slate-800 placeholder-slate-400 outline-none"
+                  />
+                </div>
               </div>
               {pacientes
                 .filter((p) => p.nome.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -350,23 +357,25 @@ export default function LogRotinaPage() {
                   : "Ainda sem atividades marcadas neste turno";
 
                 return (
-                  <div key={paciente.id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-100">
-                    <div className="flex items-center justify-between gap-4 p-4 cursor-pointer" onClick={() => setExpanded((s) => ({ ...s, [paciente.id]: !s[paciente.id] }))}>
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 text-2xl font-black text-blue-700">{paciente.nome.charAt(0)}</div>
+                  <div key={paciente.id} className="group/patient overflow-hidden rounded-[2.5rem] border border-slate-200/80 bg-white shadow-sm shadow-slate-200/30 transition-all duration-300 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5">
+                    <div className="flex items-center justify-between gap-4 p-6 cursor-pointer transition-colors hover:bg-blue-50/40" onClick={() => setExpanded((s) => ({ ...s, [paciente.id]: !s[paciente.id] }))}>
+                      <div className="flex items-center gap-5">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.25rem] bg-slate-50 text-2xl font-black text-slate-500 shadow-sm shadow-slate-200/50 transition-all duration-300 group-hover/patient:bg-blue-600 group-hover/patient:text-white group-hover/patient:shadow-blue-200">
+                          {paciente.nome.charAt(0)}
+                        </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-900 truncate">{paciente.nome} • {paciente.idade} anos</p>
-                          <p className="mt-1 text-xs text-slate-500 truncate">Clique para expandir e registrar atividades</p>
+                          <p className="text-lg font-black text-slate-800 tracking-tight truncate group-hover/patient:text-blue-700 transition-colors">{paciente.nome} <span className="text-sm font-medium text-slate-500 ml-1">• {paciente.idade} anos</span></p>
+                          <p className="mt-1 text-sm font-medium text-slate-500 truncate">Clique para expandir e registrar atividades</p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className={`rounded-full px-3 py-1 text-xs font-bold ${paciente.statusSeguranca === "Verde" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-amber-50 text-amber-700 border border-amber-100"}`}>{paciente.statusSeguranca}</div>
-                        <button onClick={(e) => { e.stopPropagation(); router.push(`/pacientes/${paciente.id}`); }} className="rounded-full bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600">Abrir</button>
+                      <div className="flex items-center gap-4">
+                        <div className={`rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-wider ${paciente.statusSeguranca === "Verde" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : paciente.statusSeguranca === "Amarelo" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-red-50 text-red-700 border-red-200"}`}>{paciente.statusSeguranca}</div>
+                        <button onClick={(e) => { e.stopPropagation(); router.push(`/pacientes/${paciente.id}`); }} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:text-blue-700 hover:border-blue-200">Prontuário</button>
                       </div>
                     </div>
 
-                    <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3 text-sm text-slate-600">
+                    <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 text-sm text-slate-600">
                       <span className="font-bold text-slate-900">Rascunho do turno:</span> {resumoLabel}
                     </div>
 
@@ -390,11 +399,11 @@ export default function LogRotinaPage() {
                           })}
                         </div>
 
-                        <div className="border-t border-slate-100 bg-white px-6 pb-6 pt-5">
-                          <div className="mb-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                            <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                              <StickyNote className="h-3.5 w-3.5" />
-                              Observação do turno
+                        <div className="border-t border-slate-100 bg-white px-8 pb-8 pt-6">
+                          <div className="mb-6 rounded-[2rem] border border-slate-100 bg-slate-50/70 p-6">
+                            <label className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                              <StickyNote className="h-4 w-4" />
+                              Observação Geral do Turno
                             </label>
                             <textarea
                               value={draft.observacaoTurno}
@@ -407,20 +416,20 @@ export default function LogRotinaPage() {
                                   },
                                 }))
                               }
-                              rows={2}
+                              rows={3}
                               placeholder="Ex: residente mais sonolento, precisou de ajuda extra, houve visita da família..."
-                              className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
+                              className="w-full rounded-2xl border-2 border-slate-200/80 bg-white px-5 py-4 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-blue-500 focus:shadow-md focus:shadow-blue-500/10 resize-none"
                             />
-                            <p className="mt-2 text-xs text-slate-400">
-                              Essa observação será anexada aos registros quando você concluir o turno.
+                            <p className="mt-3 text-sm font-medium text-slate-500">
+                              Essa observação será anexada aos registros de hoje quando você concluir o turno.
                             </p>
                           </div>
 
                           <button
                             onClick={() => abrirConclusaoTurno(paciente)}
-                            className="w-full rounded-3xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition-all hover:bg-blue-600"
+                            className="w-full rounded-[2rem] bg-slate-900 px-6 py-5 text-base font-black text-white shadow-xl shadow-slate-900/20 transition-all duration-300 hover:-translate-y-1 hover:bg-blue-600 hover:shadow-blue-600/30 active:scale-[0.98]"
                           >
-                            Concluir turno deste paciente
+                            Concluir Turno e Salvar Logs
                           </button>
                         </div>
                       </>

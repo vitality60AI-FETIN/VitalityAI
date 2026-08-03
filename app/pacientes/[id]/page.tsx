@@ -401,7 +401,7 @@ export default function ProntuarioDigitalPage() {
               {paciente && !editMode ? (
                 <button
                   onClick={() => setShowCadastroInfo((current) => !current)}
-                  className="group flex w-40 shrink-0 items-center gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-3 text-left shadow-sm shadow-slate-100 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                  className="group flex w-48 shrink-0 items-center gap-4 rounded-[2rem] border border-slate-200/80 bg-white p-3 text-left shadow-sm shadow-slate-200/30 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5"
                 >
                   <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-400">
                     {paciente.fotoUrl ? (
@@ -426,8 +426,8 @@ export default function ProntuarioDigitalPage() {
             </div>
 
             {paciente && showCadastroInfo && !editMode ? (
-              <div className="absolute right-0 top-20 z-20 w-full max-w-md rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-200/70">
-                <div className="flex items-start gap-3">
+              <div className="absolute right-0 top-20 z-20 w-full max-w-md rounded-[2rem] border border-slate-200/80 bg-white/95 p-6 shadow-2xl shadow-blue-900/10 backdrop-blur-xl animate-in slide-in-from-top-4 duration-300">
+                <div className="flex items-start gap-4">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-400">
                     {paciente.fotoUrl ? (
                       <img
@@ -478,16 +478,16 @@ export default function ProntuarioDigitalPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-2">
+                <div className="mt-6 flex gap-3">
                   <button
                     onClick={() => setEditMode(true)}
-                    className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                    className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg"
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => setDeleteConfirmOpen(true)}
-                    className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700"
+                    className="flex-1 rounded-2xl bg-red-50 text-red-600 px-4 py-3 text-sm font-bold border border-red-100 transition-all hover:-translate-y-0.5 hover:bg-red-100"
                   >
                     Deletar
                   </button>
@@ -501,8 +501,8 @@ export default function ProntuarioDigitalPage() {
               <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
             </div>
           ) : editMode && paciente ? (
-            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-100/50 p-8 md:p-12 border border-slate-100">
-              <div className="mb-8 flex items-center justify-between">
+            <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 p-8 md:p-12 border border-slate-100/80 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-2">
                     Editar Prontuário
@@ -513,7 +513,7 @@ export default function ProntuarioDigitalPage() {
                 </div>
                 <button
                   onClick={() => setEditMode(false)}
-                  className="rounded-xl px-4 py-2 bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors"
+                  className="rounded-2xl px-6 py-3 bg-slate-50 text-slate-600 font-bold hover:bg-slate-100 hover:text-slate-900 transition-colors border border-slate-200/60 shadow-sm"
                 >
                   Cancelar
                 </button>
@@ -603,8 +603,8 @@ export default function ProntuarioDigitalPage() {
                                     const dataExibida = log.dataTurno ? formatarDataTurno(log.dataTurno) : formatarData(log.dataHora);
 
                                     return (
-                                      <article key={log.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                      <article key={log.id} className="group rounded-[2rem] border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-200/30 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5">
+                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                           <div>
                                             <div className={`flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] ${presentation.accent}`}>
                                               <IconComponent className="h-4 w-4" />
@@ -616,7 +616,7 @@ export default function ProntuarioDigitalPage() {
                                             {log.observacao ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacao}</p> : null}
                                           </div>
 
-                                          <div className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-slate-500 shadow-sm">
+                                          <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-500 shadow-sm border border-slate-100 transition-colors group-hover:bg-blue-50 group-hover:text-blue-700 group-hover:border-blue-100">
                                             {dataExibida}
                                           </div>
                                         </div>
@@ -639,7 +639,7 @@ export default function ProntuarioDigitalPage() {
                                 <button
                                   key={pageNumber}
                                   onClick={() => setLogsPage(pageNumber)}
-                                  className={`h-2.5 rounded-full transition-all ${isActive ? "w-8 bg-blue-600" : "w-2.5 bg-slate-300 hover:bg-slate-400"}`}
+                                  className={`h-3 rounded-full transition-all duration-300 ${isActive ? "w-10 bg-blue-600" : "w-3 bg-slate-200 hover:bg-slate-300"}`}
                                   aria-label={`Ir para a página ${pageNumber}`}
                                 />
                               );

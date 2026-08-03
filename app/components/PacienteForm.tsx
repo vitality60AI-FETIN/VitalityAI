@@ -134,32 +134,33 @@ export default function PacienteForm({
 
   const getFieldClass = (fieldName: string) => {
     const hasError = errors[fieldName] && touched[fieldName];
-    const baseClass = "w-full p-4 rounded-2xl border-2 transition-all outline-none";
-    const bgClass = "bg-slate-50 focus:bg-white";
+    const baseClass = "w-full px-5 py-4 rounded-2xl border-2 transition-all duration-300 outline-none text-base font-medium text-slate-800 placeholder-slate-400";
+    const bgClass = "bg-slate-50/70 hover:bg-slate-100 focus:bg-white";
 
     if (hasError) {
-      return `${baseClass} ${bgClass} border-red-500 focus:border-red-500`;
+      return `${baseClass} ${bgClass} border-red-400 focus:border-red-500 focus:shadow-lg focus:shadow-red-500/10 focus:-translate-y-0.5`;
     }
 
-    return `${baseClass} ${bgClass} border-transparent focus:border-blue-500`;
+    return `${baseClass} ${bgClass} border-transparent focus:border-blue-500 focus:shadow-lg focus:shadow-blue-500/10 focus:-translate-y-0.5`;
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-10">
       {/* Cabeçalho */}
-      <header>
-        <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-3">
+      <header className="mb-8">
+        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-3 md:text-4xl">
           {title}
         </h1>
-        <p className="text-slate-500 text-lg max-w-2xl">
+        <p className="text-slate-500 text-base md:text-lg max-w-2xl leading-relaxed">
           {description}
         </p>
       </header>
 
       {/* SEÇÃO 1: DADOS BÁSICOS & BIOMETRIA */}
-      <section>
-        <h2 className="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-6 border-b border-slate-100 pb-2">
-          1. Identificação & Biometria
+      <section className="bg-white rounded-[2rem] p-6 md:p-8 border border-slate-100 shadow-sm shadow-slate-100/50">
+        <h2 className="text-sm font-black text-blue-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">1</span>
+          Identificação & Biometria
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Nome */}
@@ -258,9 +259,10 @@ export default function PacienteForm({
       </section>
 
       {/* SEÇÃO 2: CONDIÇÕES & OBJETIVOS */}
-      <section>
-        <h2 className="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-6 border-b border-slate-100 pb-2">
-          2. Condições Clínicas & Objetivos
+      <section className="bg-white rounded-[2rem] p-6 md:p-8 border border-slate-100 shadow-sm shadow-slate-100/50">
+        <h2 className="text-sm font-black text-blue-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">2</span>
+          Condições Clínicas & Objetivos
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
           {/* Restrições Físicas */}
@@ -317,9 +319,10 @@ export default function PacienteForm({
       </section>
 
       {/* SEÇÃO 3: SEGURANÇA (GATILHO) */}
-      <section className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
-        <h2 className="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-4">
-          3. Gatilho de Segurança
+      <section className="bg-gradient-to-br from-blue-50 to-indigo-50/50 p-6 md:p-8 rounded-[2rem] border border-blue-100 shadow-sm">
+        <h2 className="text-sm font-black text-blue-700 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md shadow-blue-200">3</span>
+          Gatilho de Segurança SOS
         </h2>
         <div className="grid grid-cols-1 gap-4">
           <div>
@@ -351,7 +354,7 @@ export default function PacienteForm({
       <button
         type="submit"
         disabled={isLoading || Object.keys(errors).length > 0}
-        className="w-full bg-slate-900 text-white p-6 rounded-[2rem] font-black text-xl shadow-2xl shadow-slate-200 hover:bg-blue-600 hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full bg-slate-900 text-white p-6 rounded-[2rem] font-black text-lg shadow-2xl shadow-slate-900/20 transition-all duration-300 hover:bg-blue-600 hover:shadow-blue-600/30 hover:-translate-y-1 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:bg-slate-900 mt-4"
       >
         {isLoading ? (
           <span className="inline-flex items-center gap-2">
