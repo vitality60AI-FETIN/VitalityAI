@@ -1,37 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation"; // <-- Adicionado usePathname para saber a rota ativa
+import { useRouter } from "next/navigation";
 import { Users, AlertTriangle, CheckCircle2, TrendingUp, Brain, Sparkles, Loader2 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
+import DashboardLayout from "../components/DashboardLayout";
 
 import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
-import { normalizeLogRecords } from "../../lib/logNormalizer";
+import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
+import { Paciente, AIReport } from "../../lib/types";
 
-interface Paciente {
-  id: string;
-  nome: string;
-  idade: string;
-  statusSeguranca: string;
+interface DashboardAlert extends NormalizedLogRecord {
+  pacienteNome: string;
 }
 
 export default function DashboardLobby() {
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState("Cuidador");
   const [pacientes, setPacientes] = useState<Paciente[]>([]); 
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<NormalizedLogRecord[]>([]);
   const [incidentesHoje, setIncidentesHoje] = useState(0);
   const [timeRange, setTimeRange] = useState<'24h' | '7d'>('24h');
   const [typeFilter, setTypeFilter] = useState<'all' | 'alimentacao' | 'hidratacao' | 'medicacao'>('all');
   const [patientFilter, setPatientFilter] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiReport, setAiReport] = useState<{resumo_geral: string, pontos_atencao: string[], recomendacoes_rotina: string[]} | null>(null);
+  const [aiReport, setAiReport] = useState<AIReport | null>(null);
 
   const router = useRouter();
-  const pathname = usePathname();
   const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
 
   useEffect(() => {
@@ -40,8 +37,6 @@ export default function DashboardLobby() {
         router.push("/login");
         return;
       }
-
-      setUserName(user.email?.split("@")[0] || "Cuidador");
 
       // Ainda carregando instituicaoId
       if (loadingInstituicao) {
@@ -61,7 +56,7 @@ export default function DashboardLobby() {
       );
       const unsubPacientes = onSnapshot(qPacientes, (snap) => {
         const lista: Paciente[] = [];
-        snap.forEach((d) => lista.push({ id: d.id, ...(d.data() as any) } as Paciente));
+        snap.forEach((d) => lista.push({ id: d.id, ...d.data() } as Paciente));
         setPacientes(lista);
         setLoading(false);
       }, (err) => {
@@ -76,7 +71,7 @@ export default function DashboardLobby() {
       );
       const unsubLogs = onSnapshot(qLogs, (snap) => {
         const lista = normalizeLogRecords(
-          snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
+          snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         );
         setLogs(lista);
 
@@ -91,33 +86,25 @@ export default function DashboardLobby() {
       }, (err) => console.error('Erro realtime logs', err));
 
       // ensure we cleanup realtime listeners when auth changes or component unmounts
-      // store unsubscribes on window (short-lived) and clear on sign-out / unmount
-      (unsubscribeAuth as any)._unsubPacientes = unsubPacientes;
-      (unsubscribeAuth as any)._unsubLogs = unsubLogs;
+      // store unsubscribes via ref pattern
+      (unsubscribeAuth as unknown as Record<string, () => void>)._unsubPacientes = unsubPacientes;
+      (unsubscribeAuth as unknown as Record<string, () => void>)._unsubLogs = unsubLogs;
     });
 
     return () => {
       // call onAuth unsubscribe
       try {
+        const authUnsub = unsubscribeAuth as unknown as Record<string, (() => void) | undefined>;
         // unsubscribe auth
         if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
         // also try to cleanup nested unsubscribes
-        if ((unsubscribeAuth as any)?._unsubPacientes) (unsubscribeAuth as any)._unsubPacientes();
-        if ((unsubscribeAuth as any)?._unsubLogs) (unsubscribeAuth as any)._unsubLogs();
+        if (authUnsub._unsubPacientes) authUnsub._unsubPacientes();
+        if (authUnsub._unsubLogs) authUnsub._unsubLogs();
       } catch (e) {
         console.warn('Erro ao limpar listeners', e);
       }
     };
   }, [router, instituicaoId, loadingInstituicao]);
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/");
-  };
-
-  const irParaCadastroPaciente = () => {
-    router.push("/pacientes/novo"); 
-  };
 
   const handleGenerateReport = async () => {
     if (pacientes.length === 0) return;
@@ -156,7 +143,7 @@ export default function DashboardLobby() {
     pacienteNome: pacientes.find((p) => p.id === l.pacienteId)?.nome || l.pacienteId,
   }));
 
-  const isAlert = (l: any) => {
+  const isAlert = (l: DashboardAlert) => {
     if (!l || !l.tipo) return false;
     if (typeFilter !== 'all' && l.tipo !== typeFilter) return false;
     if (l.tipo === 'alimentacao' && (l.status === 'Recusou' || l.status === 'Metade')) return true;
@@ -208,106 +195,22 @@ export default function DashboardLobby() {
     );
   }
 
-  // ITENS DO MENU baseados no MVP do Vitalidade Care AI
-  const menuItems = [
-    { name: "Painel Geral", path: "/dashboard", icon: "📊" },
-    { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
-    { name: "Log de Rotina", path: "/rotina", icon: "📝" },
-    { name: "Insights IA", path: "/insights", icon: "🧠" },
-    ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: "👥" }] : []),
-  ];
-
   return (
-    // THE WRAPPER: Container flex que segura a tela toda sem rolar (h-screen overflow-hidden)
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      
-      {/* 1. SIDEBAR CONFIGURATION */}
-      <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col justify-between shadow-sm z-10">
-        <div>
-          {/* Logo Brand */}
-          <div className="flex items-center gap-3 px-6 py-6 border-b border-slate-100">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center text-white font-black shadow-md shadow-blue-200">
-              V
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-800">
-              Vitality AI
-            </span>
-          </div>
-
-          {/* Navigation Menu */}
-          <nav className="p-4 space-y-2">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.path;
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => router.push(item.path)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm
-                    ${isActive 
-                      ? 'bg-blue-50 text-blue-700 font-bold' 
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  {item.name}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* User Profile & Logout at the bottom */}
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl mb-2">
-             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold uppercase shrink-0">
-                {userName.charAt(0)}
-             </div>
-             <div className="truncate text-left flex-1">
-               <p className="text-sm font-bold text-slate-800 truncate">{userName}</p>
-               <p className="text-xs text-slate-400">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
-             </div>
-          </div>
-          <button 
-            onClick={handleLogout} 
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
-          >
-            Encerrar Sessão
-          </button>
-        </div>
-      </aside>
-
-      {/* 2. MAIN CONTENT AREA (Rolagem acontece apenas aqui) */}
-      <div className="flex-1 flex flex-col overflow-y-auto relative">
-        
-        {/* NAVBAR SUPERIOR (Simplificada, já que o logo foi para a Sidebar) */}
-        <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 transition-all flex justify-end items-center">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={irParaCadastroPaciente}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-full hover:bg-blue-700 shadow-md shadow-blue-200 transition-all hidden sm:block"
-            >
-              + Novo Paciente
-            </button>
-          </div>
-        </nav>
-
-        {/* CONTEÚDO PRINCIPAL (Exatamente como estava) */}
-        <main className="max-w-7xl mx-auto w-full px-6 py-10">
-          <header className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700 flex justify-between items-end">
+    <DashboardLayout>
+      <header className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700 flex justify-between items-end">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-800 mb-2">
+              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-2">
                 Painel Geral
               </h1>
-              <p className="text-slate-500 text-lg">
+              <p className="text-slate-500 text-lg leading-relaxed">
                 Visão rápida da rotina e segurança dos idosos sob seus cuidados.
               </p>
             </div>
-            
             <button 
-              onClick={irParaCadastroPaciente}
-              className="sm:hidden w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold shadow-lg shadow-blue-200"
+              onClick={() => router.push("/pacientes/novo")}
+              className="sm:hidden w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-200 active:scale-95 transition-transform"
             >
-              +
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             </button>
           </header>
 
@@ -318,37 +221,37 @@ export default function DashboardLobby() {
           ) : (
             <div className="space-y-8">
               <section className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
+                <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-transform cursor-default">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-slate-500">Total de Residentes</p>
-                        <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{pacientes.length}</h3>
+                        <h3 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">{pacientes.length}</h3>
                     </div>
-                    <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
+                    <div className="rounded-2xl bg-blue-50/80 p-3 text-blue-600">
                       <Users className="h-6 w-6" />
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
+                <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-transform cursor-default">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-slate-500">Requerem Atenção</p>
-                      <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{pacientesAtencao.length}</h3>
+                      <h3 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">{pacientesAtencao.length}</h3>
                     </div>
-                    <div className="rounded-2xl bg-red-50 p-3 text-red-600">
+                    <div className="rounded-2xl bg-red-50/80 p-3 text-red-600">
                       <AlertTriangle className="h-6 w-6" />
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
+                <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-transform cursor-default">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium text-slate-500">Rotinas Concluídas</p>
-                      <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{incidentesHoje} / {pacientes.length}</h3>
+                      <h3 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">{incidentesHoje} <span className="text-lg font-medium text-slate-400">/ {pacientes.length}</span></h3>
                     </div>
-                    <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-600">
+                    <div className="rounded-2xl bg-emerald-50/80 p-3 text-emerald-600">
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
                   </div>
@@ -357,21 +260,21 @@ export default function DashboardLobby() {
 
               {/* Análise Inteligente IA */}
               <section className="mt-6">
-                <div className="rounded-[2rem] border border-indigo-100 bg-gradient-to-br from-indigo-50 to-purple-50 p-6 shadow-sm shadow-indigo-100/50">
+                <div className="rounded-3xl border border-indigo-100/60 bg-gradient-to-br from-indigo-50/50 to-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)]">
                   <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h3 className="text-xl font-black tracking-tight text-indigo-950 flex items-center gap-2">
+                      <h3 className="text-xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
                         <Brain className="h-6 w-6 text-indigo-600" />
                         Análise de Saúde Geriátrica IA
                       </h3>
-                      <p className="text-sm text-indigo-700/70 mt-1">
+                      <p className="text-sm text-slate-500 mt-1">
                         Relatório inteligente baseado nas métricas recentes de todos os pacientes.
                       </p>
                     </div>
                     <button
                       onClick={handleGenerateReport}
                       disabled={isGeneratingAI || pacientes.length === 0}
-                      className="flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-indigo-200 transition-all hover:bg-indigo-700 disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-indigo-200 transition-all hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
                     >
                       {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                       {isGeneratingAI ? "Analisando dados..." : "Gerar Relatório Inteligente"}
@@ -431,11 +334,11 @@ export default function DashboardLobby() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="rounded-2xl border px-3 py-2 text-sm outline-none">
+                      <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as '24h' | '7d')} className="rounded-2xl border px-3 py-2 text-sm outline-none">
                         <option value="24h">Últimas 24h</option>
                         <option value="7d">Últimos 7 dias</option>
                       </select>
-                      <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)} className="rounded-2xl border px-3 py-2 text-sm outline-none">
+                      <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as 'all' | 'alimentacao' | 'hidratacao' | 'medicacao')} className="rounded-2xl border px-3 py-2 text-sm outline-none">
                         <option value="all">Todos</option>
                         <option value="alimentacao">Alimentação</option>
                         <option value="hidratacao">Hidratação</option>
@@ -563,8 +466,6 @@ export default function DashboardLobby() {
               </section>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }
