@@ -96,6 +96,7 @@ export default function LogRotinaPage() {
 
   const router = useRouter();
   const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
+  const allActivityTypes = useAllActivityTypes();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -269,8 +270,6 @@ export default function LogRotinaPage() {
       </div>
     );
   }
-
-  const allActivityTypes = useAllActivityTypes();
 
   return (
     <DashboardLayout>

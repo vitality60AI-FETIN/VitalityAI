@@ -8,7 +8,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Vitality AI",
-  description: "App for healthcare for the elderly.",
+  description: "Sistema inteligente para gestão de rotina e saúde em instituições de longa permanência para idosos.",
 };
 
 export default function RootLayout({
