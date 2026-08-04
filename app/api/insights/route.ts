@@ -1,6 +1,12 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebaseAdmin';
+import { checkRateLimit } from '@/lib/rateLimit';
+
+// ─── CONFIGURAÇÃO DE RATE LIMITING ───
+// 10 requisições por minuto por usuário autenticado
+const RATE_LIMIT_MAX_REQUESTS = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minuto
 
 export async function POST(req: Request) {
   try {
@@ -16,12 +22,42 @@ export async function POST(req: Request) {
 
     const token = authHeader.split('Bearer ')[1];
 
+    let decodedToken;
     try {
-      await adminAuth.verifyIdToken(token);
+      decodedToken = await adminAuth.verifyIdToken(token);
     } catch {
       return NextResponse.json(
         { error: 'Token inválido ou expirado. Faça login novamente.' },
         { status: 401 }
+      );
+    }
+
+    // ─── RATE LIMITING POR USUÁRIO ───
+    const uid = decodedToken.uid;
+    const rateLimitResult = checkRateLimit(uid, {
+      maxRequests: RATE_LIMIT_MAX_REQUESTS,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const retryAfterSeconds = Math.ceil(
+        (rateLimitResult.resetAt - Date.now()) / 1000
+      );
+
+      return NextResponse.json(
+        {
+          error: `Limite de requisições excedido. Tente novamente em ${retryAfterSeconds} segundos.`,
+          retryAfter: retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfterSeconds),
+            'X-RateLimit-Limit': String(rateLimitResult.limit),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(rateLimitResult.resetAt),
+          },
+        }
       );
     }
 
