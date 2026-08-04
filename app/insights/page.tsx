@@ -17,7 +17,8 @@ import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
 import { useInstitucaoId } from "../../lib/hooks";
-import { normalizeLogRecords } from "../../lib/logNormalizer";
+import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
+import { Paciente, InsightHistoryItem } from "../../lib/types";
 
 export default function InsightsPage() {
   const [loading, setLoading] = useState(true);
@@ -25,9 +26,9 @@ export default function InsightsPage() {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [pacientes, setPacientes] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
+  const [pacientes, setPacientes] = useState<Paciente[]>([]);
+  const [logs, setLogs] = useState<NormalizedLogRecord[]>([]);
+  const [history, setHistory] = useState<InsightHistoryItem[]>([]);
   const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
 
   const router = useRouter();
@@ -48,8 +49,8 @@ export default function InsightsPage() {
 
       const qPacientes = query(collection(db, "Pacientes"), where("instituicaoId", "==", instituicaoId));
       const unsubPacientes = onSnapshot(qPacientes, (snap) => {
-        const lista: any[] = [];
-        snap.forEach((d) => lista.push({ id: d.id, ...d.data() }));
+        const lista: Paciente[] = [];
+        snap.forEach((d) => lista.push({ id: d.id, ...d.data() } as Paciente));
         setPacientes(lista);
         setLoading(false);
       }, (err) => {
@@ -65,8 +66,8 @@ export default function InsightsPage() {
 
       const qHistory = query(collection(db, "InsightsHistory"), where("instituicaoId", "==", instituicaoId));
       const unsubHistory = onSnapshot(qHistory, (snap) => {
-        const lista: any[] = [];
-        snap.forEach((d) => lista.push({ id: d.id, ...d.data() }));
+        const lista: InsightHistoryItem[] = [];
+        snap.forEach((d) => lista.push({ id: d.id, ...d.data() } as InsightHistoryItem));
         
         // Ordenação local para não exigir index composto no Firestore
         lista.sort((a, b) => {
@@ -78,17 +79,19 @@ export default function InsightsPage() {
         setHistory(lista);
       }, (err) => console.error(err));
 
-      (unsubscribeAuth as any)._unsubPacientes = unsubPacientes;
-      (unsubscribeAuth as any)._unsubLogs = unsubLogs;
-      (unsubscribeAuth as any)._unsubHistory = unsubHistory;
+      const authUnsub = unsubscribeAuth as unknown as Record<string, () => void>;
+      authUnsub._unsubPacientes = unsubPacientes;
+      authUnsub._unsubLogs = unsubLogs;
+      authUnsub._unsubHistory = unsubHistory;
     });
 
     return () => {
       try {
+        const authUnsub = unsubscribeAuth as unknown as Record<string, (() => void) | undefined>;
         if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
-        if ((unsubscribeAuth as any)?._unsubPacientes) (unsubscribeAuth as any)._unsubPacientes();
-        if ((unsubscribeAuth as any)?._unsubLogs) (unsubscribeAuth as any)._unsubLogs();
-        if ((unsubscribeAuth as any)?._unsubHistory) (unsubscribeAuth as any)._unsubHistory();
+        if (authUnsub._unsubPacientes) authUnsub._unsubPacientes();
+        if (authUnsub._unsubLogs) authUnsub._unsubLogs();
+        if (authUnsub._unsubHistory) authUnsub._unsubHistory();
       } catch (e) {}
     };
   }, [router, instituicaoId, loadingInstituicao]);

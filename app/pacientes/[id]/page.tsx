@@ -152,11 +152,6 @@ export default function ProntuarioDigitalPage() {
         return;
       }
 
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
       if (loadingInstituicao) {
         return;
       }

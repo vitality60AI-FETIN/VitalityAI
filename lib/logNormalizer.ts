@@ -1,4 +1,5 @@
 import { ACTIVITY_TYPES, ActivityType } from "./activityTypes";
+import { FirestoreTimestamp } from "./types";
 
 export type RawLogRecord = Record<string, any>;
 
@@ -13,7 +14,7 @@ export interface NormalizedLogRecord {
   observacao: string;
   observacaoTurno: string;
   dataTurno: string;
-  dataHora?: any;
+  dataHora?: FirestoreTimestamp;
   original: RawLogRecord;
 }
 

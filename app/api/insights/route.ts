@@ -105,7 +105,7 @@ ESTRUTURA OBRIGATÓRIA (UTILIZE EXATAMENTE ESTAS CHAVES):
       finalPrompt += `\n\nDados dos Pacientes:\n${JSON.stringify(patients)}\n\nLogs Recentes:\n${JSON.stringify(logs)}`;
     }
 
-    const config: any = {
+    const config: Record<string, unknown> = {
       systemInstruction,
     };
 
@@ -135,8 +135,9 @@ ESTRUTURA OBRIGATÓRIA (UTILIZE EXATAMENTE ESTAS CHAVES):
     });
 
     return NextResponse.json({ result: response.text });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error with Gemini API:', error);
-    return NextResponse.json({ error: error.message || 'Erro ao gerar insight' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Erro ao gerar insight';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

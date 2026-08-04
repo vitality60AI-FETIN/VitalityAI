@@ -10,25 +10,23 @@ import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
-import { normalizeLogRecords } from "../../lib/logNormalizer";
+import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
+import { Paciente, AIReport } from "../../lib/types";
 
-interface Paciente {
-  id: string;
-  nome: string;
-  idade: string;
-  statusSeguranca: string;
+interface DashboardAlert extends NormalizedLogRecord {
+  pacienteNome: string;
 }
 
 export default function DashboardLobby() {
   const [loading, setLoading] = useState(true);
   const [pacientes, setPacientes] = useState<Paciente[]>([]); 
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<NormalizedLogRecord[]>([]);
   const [incidentesHoje, setIncidentesHoje] = useState(0);
   const [timeRange, setTimeRange] = useState<'24h' | '7d'>('24h');
   const [typeFilter, setTypeFilter] = useState<'all' | 'alimentacao' | 'hidratacao' | 'medicacao'>('all');
   const [patientFilter, setPatientFilter] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiReport, setAiReport] = useState<{resumo_geral: string, pontos_atencao: string[], recomendacoes_rotina: string[]} | null>(null);
+  const [aiReport, setAiReport] = useState<AIReport | null>(null);
 
   const router = useRouter();
   const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
@@ -58,7 +56,7 @@ export default function DashboardLobby() {
       );
       const unsubPacientes = onSnapshot(qPacientes, (snap) => {
         const lista: Paciente[] = [];
-        snap.forEach((d) => lista.push({ id: d.id, ...(d.data() as any) } as Paciente));
+        snap.forEach((d) => lista.push({ id: d.id, ...d.data() } as Paciente));
         setPacientes(lista);
         setLoading(false);
       }, (err) => {
@@ -73,7 +71,7 @@ export default function DashboardLobby() {
       );
       const unsubLogs = onSnapshot(qLogs, (snap) => {
         const lista = normalizeLogRecords(
-          snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
+          snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         );
         setLogs(lista);
 
@@ -88,19 +86,20 @@ export default function DashboardLobby() {
       }, (err) => console.error('Erro realtime logs', err));
 
       // ensure we cleanup realtime listeners when auth changes or component unmounts
-      // store unsubscribes on window (short-lived) and clear on sign-out / unmount
-      (unsubscribeAuth as any)._unsubPacientes = unsubPacientes;
-      (unsubscribeAuth as any)._unsubLogs = unsubLogs;
+      // store unsubscribes via ref pattern
+      (unsubscribeAuth as unknown as Record<string, () => void>)._unsubPacientes = unsubPacientes;
+      (unsubscribeAuth as unknown as Record<string, () => void>)._unsubLogs = unsubLogs;
     });
 
     return () => {
       // call onAuth unsubscribe
       try {
+        const authUnsub = unsubscribeAuth as unknown as Record<string, (() => void) | undefined>;
         // unsubscribe auth
         if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
         // also try to cleanup nested unsubscribes
-        if ((unsubscribeAuth as any)?._unsubPacientes) (unsubscribeAuth as any)._unsubPacientes();
-        if ((unsubscribeAuth as any)?._unsubLogs) (unsubscribeAuth as any)._unsubLogs();
+        if (authUnsub._unsubPacientes) authUnsub._unsubPacientes();
+        if (authUnsub._unsubLogs) authUnsub._unsubLogs();
       } catch (e) {
         console.warn('Erro ao limpar listeners', e);
       }
@@ -144,7 +143,7 @@ export default function DashboardLobby() {
     pacienteNome: pacientes.find((p) => p.id === l.pacienteId)?.nome || l.pacienteId,
   }));
 
-  const isAlert = (l: any) => {
+  const isAlert = (l: DashboardAlert) => {
     if (!l || !l.tipo) return false;
     if (typeFilter !== 'all' && l.tipo !== typeFilter) return false;
     if (l.tipo === 'alimentacao' && (l.status === 'Recusou' || l.status === 'Metade')) return true;
@@ -335,11 +334,11 @@ export default function DashboardLobby() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="rounded-2xl border px-3 py-2 text-sm outline-none">
+                      <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as '24h' | '7d')} className="rounded-2xl border px-3 py-2 text-sm outline-none">
                         <option value="24h">Últimas 24h</option>
                         <option value="7d">Últimos 7 dias</option>
                       </select>
-                      <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)} className="rounded-2xl border px-3 py-2 text-sm outline-none">
+                      <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as 'all' | 'alimentacao' | 'hidratacao' | 'medicacao')} className="rounded-2xl border px-3 py-2 text-sm outline-none">
                         <option value="all">Todos</option>
                         <option value="alimentacao">Alimentação</option>
                         <option value="hidratacao">Hidratação</option>
