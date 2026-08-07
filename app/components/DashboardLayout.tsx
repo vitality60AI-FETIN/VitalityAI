@@ -47,9 +47,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   ];
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen print:h-auto print:block bg-slate-50 font-sans text-slate-900 overflow-hidden print:overflow-visible">
       {/* SIDEBAR */}
-      <aside className={`bg-slate-950 border-r border-slate-800 transition-all duration-300 hidden md:flex flex-col justify-between shadow-2xl shadow-slate-900/50 z-20 relative ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
+      <aside className={`bg-slate-950 border-r border-slate-800 transition-all duration-300 hidden md:flex flex-col justify-between shadow-2xl shadow-slate-900/50 z-20 relative print:hidden ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
         <div>
           {/* Logo Brand */}
           <div className="flex items-center gap-4 px-6 py-8 border-b border-white/5 cursor-default h-[104px]">
@@ -120,9 +120,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col overflow-y-auto relative">
+      <div className="flex-1 flex flex-col overflow-y-auto print:overflow-visible relative print:block">
         {/* NAVBAR SUPERIOR */}
-        <nav className="sticky top-0 z-10 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 transition-all flex justify-end items-center">
+        <nav className="sticky top-0 z-10 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 transition-all flex justify-end items-center print:hidden">
           <div className="flex items-center gap-4">
             {(pathname === "/pacientes" || pathname.startsWith("/pacientes/")) && (
               <button 
@@ -136,7 +136,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* CHILDREN RENDER */}
-        <main className="max-w-7xl mx-auto w-full px-6 py-10">
+        <main className="max-w-7xl mx-auto w-full px-6 py-10 print:py-0 print:px-0">
           {children}
         </main>
       </div>

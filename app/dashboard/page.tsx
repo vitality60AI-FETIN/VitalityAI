@@ -197,7 +197,7 @@ export default function DashboardLobby() {
 
   return (
     <DashboardLayout>
-      <header className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700 flex justify-between items-end">
+      <header className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700 flex justify-between items-end print:hidden">
             <div>
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-2">
                 Painel Geral
@@ -220,7 +220,7 @@ export default function DashboardLobby() {
             </div>
           ) : (
             <div className="space-y-8">
-              <section className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 print:hidden">
                 <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-transform cursor-default">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -259,9 +259,29 @@ export default function DashboardLobby() {
               </section>
 
               {/* Análise Inteligente IA */}
-              <section className="mt-6">
-                <div className="rounded-3xl border border-indigo-100/60 bg-gradient-to-br from-indigo-50/50 to-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)]">
-                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <section className="mt-6 print:mt-0">
+                <div className="rounded-3xl border border-indigo-100/60 bg-gradient-to-br from-indigo-50/50 to-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)] print:border-none print:shadow-none print:bg-none print:p-0 print:block">
+                  
+                  {/* Cabeçalho exclusivo para impressão (PDF) */}
+                  <div className="hidden print:flex flex-col mb-8 border-b border-slate-200 pb-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M5 5l7 14 7-14" /></svg>
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Vitalidade <span className="text-blue-600 italic">AI</span></h2>
+                          <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Relatório Inteligente de Saúde</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-slate-700">{new Date().toLocaleDateString('pt-BR')}</p>
+                        <p className="text-xs font-medium text-slate-500">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
                     <div>
                       <h3 className="text-xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
                         <Brain className="h-6 w-6 text-indigo-600" />
@@ -271,14 +291,25 @@ export default function DashboardLobby() {
                         Relatório inteligente com gráficos gerados por IA a partir dos dados reais.
                       </p>
                     </div>
-                    <button
-                      onClick={handleGenerateReport}
-                      disabled={isGeneratingAI || pacientes.length === 0}
-                      className="flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-indigo-200 transition-all hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
-                    >
-                      {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                      {isGeneratingAI ? "Analisando dados..." : "Gerar Relatório Inteligente"}
-                    </button>
+                    <div className="flex items-center gap-3 print:hidden">
+                      {aiReport && (
+                        <button
+                          onClick={() => window.print()}
+                          className="flex items-center justify-center gap-2 rounded-full border border-indigo-200 bg-white px-5 py-3 text-sm font-bold text-indigo-700 shadow-sm transition-all hover:bg-indigo-50 active:scale-95"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                          Salvar PDF
+                        </button>
+                      )}
+                      <button
+                        onClick={handleGenerateReport}
+                        disabled={isGeneratingAI || pacientes.length === 0}
+                        className="flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-indigo-200 transition-all hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
+                      >
+                        {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        {isGeneratingAI ? "Analisando..." : "Gerar Relatório Inteligente"}
+                      </button>
+                    </div>
                   </div>
 
                   {aiReport && (
@@ -501,7 +532,7 @@ export default function DashboardLobby() {
               </section>
 
               {/* Monitoramento em tempo real: alertas rápidos */}
-              <section className="mt-6">
+              <section className="mt-6 print:hidden">
                 <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
                   <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -555,7 +586,7 @@ export default function DashboardLobby() {
                 </div>
               </section>
 
-              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:hidden">
                 <div className="lg:col-span-2 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
                   <div className="mb-6 flex items-center justify-between gap-4">
                     <div>
