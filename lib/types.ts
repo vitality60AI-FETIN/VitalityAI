@@ -32,8 +32,38 @@ export interface InsightHistoryItem {
 }
 
 // ─── AI Report ───
+export interface AIReportDistribuicao {
+  categoria: string;
+  ok: number;
+  alerta: number;
+}
+
+export interface AIReportPacienteRisco {
+  nome: string;
+  nivel: number;
+}
+
+export interface AIReportTendencia {
+  dia: string;
+  incidentes: number;
+  positivos: number;
+}
+
+export interface AIReportGraficos {
+  distribuicao_status: AIReportDistribuicao[];
+  pacientes_risco: AIReportPacienteRisco[];
+  tendencia_semanal: AIReportTendencia[];
+}
+
+export interface AIReportRecomendacao {
+  paciente: string;
+  data_referencia: string;
+  acoes: string[];
+}
+
 export interface AIReport {
   resumo_geral: string;
   pontos_atencao: string[];
-  recomendacoes_rotina: string[];
+  recomendacoes_rotina: AIReportRecomendacao[];
+  graficos?: AIReportGraficos;
 }

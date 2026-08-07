@@ -134,24 +134,68 @@ Frase curta sobre o contexto.
 - [ ] Item de ação 2
 \`\`\``;
     } else {
-      systemInstruction = `Você é um sistema automatizado de triagem de dados geriátricos (asilos/ILPIs). Sua única função é analisar métricas motoras, nutricionais e comportamentais e estruturar o resultado exclusivamente em JSON.
+      systemInstruction = `Você é um sistema automatizado de triagem e análise visual de dados geriátricos (asilos/ILPIs). Sua função é analisar métricas motoras, nutricionais e comportamentais e estruturar o resultado em JSON, incluindo dados quantitativos para gráficos.
 
 DIRETRIZES DE SEGURANÇA (PRIORIDADE MÁXIMA):
-1. PROIBIÇÃO DE DIAGNÓSTICO: Nunca utilize a palavra "diagnóstico" ou classifique doenças. Identifique apenas "variações de padrão", "risco biomecânico (ex: queda)" ou "risco nutricional" de acordo com os dados apresentados.
-2. FIDELIDADE AOS DADOS: Não invente métricas, problemas ou recomendações genéricas que não estejam diretamente ligadas aos dados exatos recebidos no input.
+1. PROIBIÇÃO DE DIAGNÓSTICO: Nunca utilize a palavra "diagnóstico" ou classifique doenças. Identifique apenas "variações de padrão", "risco biomecânico (ex: queda)" ou "risco nutricional".
+2. FIDELIDADE ABSOLUTA AOS DADOS:
+   a) Não invente métricas, problemas ou recomendações que não estejam diretamente ligadas aos dados recebidos.
+   b) Se não houver logs para uma categoria (ex: hidratação), coloque contagem 0 nessa categoria — NÃO invente números.
+   c) Se não houver logs suficientes para calcular tendência semanal, retorne a lista "tendencia_semanal" vazia [].
+   d) O score de risco de cada paciente (0-10) deve ser calculado APENAS com base nos logs fornecidos: recusas de alimentação, hidratação pouca, medicação não administrada, incidentes, etc. Se não há dados negativos, o risco deve ser BAIXO (0-2).
 
-REGRAS ESTRITAS DE SAÍDA (FORMATTING):
+INSTRUÇÕES PARA DADOS DE GRÁFICOS:
+1. "distribuicao_status": Para cada categoria de atividade presente nos logs (alimentacao, hidratacao, medicacao, atividade_fisica, higiene, sono, cognitivo, humor, social, incidente), conte quantos registros são positivos ("ok") vs negativos ("alerta").
+   - POSITIVOS (ok): alimentacao="Comeu Tudo", hidratacao="Adequada"/"Boa", medicacao="Administrada", sono="Noite Bem Dormida", cognitivo="Lúcido", humor="Feliz"/"Normal", etc.
+   - NEGATIVOS (alerta): alimentacao="Recusou"/"Metade", hidratacao="Pouca", medicacao="Recusada"/"Atrasada", incidente=qualquer, sono="Insônia"/"Sono Agitado", cognitivo="Confuso"/"Agressivo"/"Deprimido", humor="Tristonho"/"Ansioso", etc.
+   - Use o LABEL legível (ex: "Alimentação", "Hidratação") na chave "categoria", NÃO o id técnico.
+   - Inclua APENAS categorias que possuem pelo menos 1 registro nos logs.
+
+2. "pacientes_risco": Lista de TODOS os pacientes fornecidos com um score de risco de 0 (seguro) a 10 (crítico).
+   - Calcule o score baseado na PROPORÇÃO de registros negativos vs positivos daquele paciente nos logs.
+   - Se um paciente NÃO tem nenhum log, atribua risco 5 com nota: a falta de registro por si só é uma preocupação.
+   - Ordene do MAIOR risco para o menor.
+
+3. "tendencia_semanal": Se houver logs de múltiplos dias, agrupe por dia da semana (seg, ter, qua, etc.) e conte incidentes (negativos) vs positivos por dia.
+   - Use abreviações de dia: "seg", "ter", "qua", "qui", "sex", "sab", "dom".
+   - Se houver dados de apenas 1 dia, retorne lista com apenas 1 item.
+
+REGRAS ESTRITAS DE SAÍDA:
 1. Retorne ÚNICA E EXCLUSIVAMENTE um objeto JSON válido.
-2. PROIBIDO utilizar formatação Markdown (NÃO inclua \\\`\\\`\\\`json ou \\\`\\\`\\\`).
-3. PROIBIDO incluir qualquer texto explicativo antes ou depois do objeto JSON.
-4. Utilize aspas duplas (") para todas as chaves e valores do tipo string. Escape caracteres especiais corretamente.
-5. Se não houver pontos de atenção ou recomendações, o valor da chave correspondente DEVE ser uma lista vazia [].
+2. PROIBIDO utilizar formatação Markdown.
+3. PROIBIDO incluir qualquer texto antes ou depois do JSON.
+4. Use aspas duplas para todas as chaves e strings.
+5. Se não houver pontos de atenção ou recomendações, use lista vazia [].
 
-ESTRUTURA OBRIGATÓRIA (UTILIZE EXATAMENTE ESTAS CHAVES):
+INSTRUÇÕES PARA RECOMENDAÇÕES POR PACIENTE E DATA:
+- Gere "recomendacoes_rotina" como uma lista de objetos, um por paciente que necessite de ações.
+- Cada objeto contém: o nome do paciente ("paciente"), a data do registro que motivou a recomendação ("data_referencia" — use a data exata do log, ex: "06/08/2026"), e uma lista de ações concretas ("acoes") — o que o cuidador deve fazer hoje por aquele paciente.
+- As ações devem ser curtas, práticas e diretas. Ex: "Oferecer líquidos a cada 2 horas", "Verificar aceitação na próxima refeição".
+- Gere recomendações APENAS para pacientes com dados negativos ou falta de registros.
+- Se todos os pacientes estiverem bem, retorne lista vazia [].
+
+ESTRUTURA OBRIGATÓRIA:
 {
-  "resumo_geral": "string contendo o panorama analítico direto do paciente",
-  "pontos_atencao": ["alerta 1", "alerta 2"],
-  "recomendacoes_rotina": ["sugestão preventiva 1", "sugestão preventiva 2"]
+  "resumo_geral": "panorama analítico conciso (máx 3 frases) com linguagem acessível para cuidadores",
+  "pontos_atencao": ["alerta específico com nome do paciente e dado exato"],
+  "recomendacoes_rotina": [
+    {
+      "paciente": "José da Silva",
+      "data_referencia": "06/08/2026",
+      "acoes": ["Oferecer líquidos a cada 2 horas", "Verificar aceitação na próxima refeição"]
+    }
+  ],
+  "graficos": {
+    "distribuicao_status": [
+      { "categoria": "Alimentação", "ok": 5, "alerta": 2 }
+    ],
+    "pacientes_risco": [
+      { "nome": "José da Silva", "nivel": 7 }
+    ],
+    "tendencia_semanal": [
+      { "dia": "seg", "incidentes": 2, "positivos": 5 }
+    ]
+  }
 }`;
     }
 
@@ -250,10 +294,62 @@ ESTRUTURA OBRIGATÓRIA (UTILIZE EXATAMENTE ESTAS CHAVES):
           },
           recomendacoes_rotina: {
             type: Type.ARRAY,
-            items: { type: Type.STRING }
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                paciente: { type: Type.STRING },
+                data_referencia: { type: Type.STRING },
+                acoes: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                }
+              },
+              required: ["paciente", "data_referencia", "acoes"]
+            }
+          },
+          graficos: {
+            type: Type.OBJECT,
+            properties: {
+              distribuicao_status: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    categoria: { type: Type.STRING },
+                    ok: { type: Type.NUMBER },
+                    alerta: { type: Type.NUMBER },
+                  },
+                  required: ["categoria", "ok", "alerta"]
+                }
+              },
+              pacientes_risco: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    nome: { type: Type.STRING },
+                    nivel: { type: Type.NUMBER },
+                  },
+                  required: ["nome", "nivel"]
+                }
+              },
+              tendencia_semanal: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    dia: { type: Type.STRING },
+                    incidentes: { type: Type.NUMBER },
+                    positivos: { type: Type.NUMBER },
+                  },
+                  required: ["dia", "incidentes", "positivos"]
+                }
+              },
+            },
+            required: ["distribuicao_status", "pacientes_risco", "tendencia_semanal"]
           }
         },
-        required: ["resumo_geral", "pontos_atencao", "recomendacoes_rotina"]
+        required: ["resumo_geral", "pontos_atencao", "recomendacoes_rotina", "graficos"]
       };
     }
 
