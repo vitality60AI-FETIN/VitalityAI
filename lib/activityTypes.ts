@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import {
   Droplets,
   UtensilsCrossed,
@@ -13,13 +13,33 @@ import {
   Users,
   Moon,
   Bath,
+  LucideIcon,
 } from "lucide-react";
+
+export interface ActivityOption {
+  label: string;
+  value: string;
+}
+
+export interface ActivityTypeConfig {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  hoverColor: string;
+  isMultiSelect: boolean;
+  options: ActivityOption[];
+  detailPlaceholder: string;
+}
 
 /**
  * Tipos de atividades suportadas no Log de Rotina
- * Cada tipo tem ícone, cores, e opções específicas
+ * Suporta seleção única (Single-select) ou seleção múltipla (Multi-select) com regra de exclusão para opções negativas.
  */
-export const ACTIVITY_TYPES = {
+export const ACTIVITY_TYPES: Record<string, ActivityTypeConfig> = {
   hidratacao: {
     id: "hidratacao",
     label: "Hidratação",
@@ -29,6 +49,7 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-sky-200",
     textColor: "text-sky-700",
     hoverColor: "hover:bg-sky-100",
+    isMultiSelect: false,
     options: [
       { label: "Pouca", value: "Pouca" },
       { label: "Adequada", value: "Adequada" },
@@ -45,6 +66,7 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-amber-200",
     textColor: "text-amber-700",
     hoverColor: "hover:bg-amber-100",
+    isMultiSelect: false,
     options: [
       { label: "Comeu Tudo", value: "Comeu Tudo" },
       { label: "Metade", value: "Metade" },
@@ -61,6 +83,7 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-emerald-200",
     textColor: "text-emerald-700",
     hoverColor: "hover:bg-emerald-100",
+    isMultiSelect: false,
     options: [
       { label: "Administrada", value: "Administrada" },
       { label: "Recusada", value: "Recusada" },
@@ -77,14 +100,15 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-purple-200",
     textColor: "text-purple-700",
     hoverColor: "hover:bg-purple-100",
+    isMultiSelect: true,
     options: [
       { label: "Caminhada", value: "Caminhada" },
       { label: "Fisioterapia", value: "Fisioterapia" },
-      { label: "Exercícios", value: "Exercícios" },
+      { label: "Exercícios de Força", value: "Exercícios de Força" },
       { label: "Yoga/Alongamento", value: "Yoga/Alongamento" },
       { label: "Não realizada", value: "Não realizada" },
     ],
-    detailPlaceholder: "Ex: 20 min, parque, acompanhado, dificuldade na mobilidade...",
+    detailPlaceholder: "Ex: 20 min, parque, acompanhado, treino de marcha...",
   },
   higiene: {
     id: "higiene",
@@ -95,13 +119,15 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-blue-200",
     textColor: "text-blue-700",
     hoverColor: "hover:bg-blue-100",
+    isMultiSelect: true,
     options: [
-      { label: "Banho", value: "Banho" },
+      { label: "Banho Completo", value: "Banho" },
       { label: "Higiene Bucal", value: "Higiene Bucal" },
       { label: "Troca de Fralda", value: "Troca de Fralda" },
-      { label: "Higiene Geral", value: "Higiene Geral" },
+      { label: "Corte de Unhas/Barba", value: "Corte de Unhas/Barba" },
+      { label: "Não realizada", value: "Não realizada" },
     ],
-    detailPlaceholder: "Ex: banho quente, sem resistência, dificuldade no pé esquerdo...",
+    detailPlaceholder: "Ex: banho no leito/cadeira, sem resistência...",
   },
   sono: {
     id: "sono",
@@ -112,13 +138,14 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-indigo-200",
     textColor: "text-indigo-700",
     hoverColor: "hover:bg-indigo-100",
+    isMultiSelect: false,
     options: [
       { label: "Noite Bem Dormida", value: "Noite Bem Dormida" },
       { label: "Insônia", value: "Insônia" },
       { label: "Soneca (Cochilo)", value: "Soneca" },
       { label: "Sono Agitado", value: "Sono Agitado" },
     ],
-    detailPlaceholder: "Ex: 6 horas de sono, acordou 3x, sonho agitado...",
+    detailPlaceholder: "Ex: 6 horas de sono, acordou 3x, sono calmo...",
   },
   cognitivo: {
     id: "cognitivo",
@@ -129,6 +156,7 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-rose-200",
     textColor: "text-rose-700",
     hoverColor: "hover:bg-rose-100",
+    isMultiSelect: true,
     options: [
       { label: "Lúcido/Alerta", value: "Lúcido" },
       { label: "Confuso/Desorientado", value: "Confuso" },
@@ -136,7 +164,7 @@ export const ACTIVITY_TYPES = {
       { label: "Agressivo/Irritável", value: "Agressivo" },
       { label: "Apático", value: "Apático" },
     ],
-    detailPlaceholder: "Ex: confusão quanto ao dia, não reconheceu familiar, choroso...",
+    detailPlaceholder: "Ex: confusão temporal, não reconheceu o espaço...",
   },
   incidente: {
     id: "incidente",
@@ -147,15 +175,17 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-red-200",
     textColor: "text-red-700",
     hoverColor: "hover:bg-red-100",
+    isMultiSelect: true,
     options: [
+      { label: "Sem intercorrências", value: "Sem intercorrências" },
       { label: "Queda", value: "Queda" },
-      { label: "Dor", value: "Dor" },
+      { label: "Dor Aguda", value: "Dor" },
       { label: "Febre", value: "Febre" },
       { label: "Desidratação", value: "Desidratação" },
       { label: "Infecção Urinária", value: "Infecção Urinária" },
       { label: "Outro", value: "Outro" },
     ],
-    detailPlaceholder: "Ex: queda na cozinha, dor no ombro, febre 38.5°C, sem assistência...",
+    detailPlaceholder: "Ex: turno tranquilo sem ocorrências ou febre 38°C às 14h...",
   },
   social: {
     id: "social",
@@ -166,13 +196,14 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-cyan-200",
     textColor: "text-cyan-700",
     hoverColor: "hover:bg-cyan-100",
+    isMultiSelect: true,
     options: [
       { label: "Visita Familiar", value: "Visita Familiar" },
       { label: "Atividade de Lazer", value: "Atividade de Lazer" },
       { label: "Participação em Grupo", value: "Participação em Grupo" },
       { label: "Chamadas/Vídeo", value: "Chamadas/Vídeo" },
     ],
-    detailPlaceholder: "Ex: neto visitou por 2h, jogaram dominó, feliz e animado...",
+    detailPlaceholder: "Ex: neto visitou por 2h, jogaram dominó...",
   },
   humor: {
     id: "humor",
@@ -183,15 +214,16 @@ export const ACTIVITY_TYPES = {
     borderColor: "border-yellow-200",
     textColor: "text-yellow-700",
     hoverColor: "hover:bg-yellow-100",
+    isMultiSelect: true,
     options: [
       { label: "Feliz/Animado", value: "Feliz" },
-      { label: "Normal", value: "Normal" },
+      { label: "Calmo/Normal", value: "Normal" },
       { label: "Tristonho", value: "Tristonho" },
       { label: "Ansioso", value: "Ansioso" },
     ],
-    detailPlaceholder: "Ex: demonstrou interesse, sorriu, conversou bastante...",
+    detailPlaceholder: "Ex: sorriu durante o café, demonstrou calma...",
   },
-} as const;
+};
 
 export type ActivityType = keyof typeof ACTIVITY_TYPES;
 
@@ -200,7 +232,7 @@ export interface ActivityLog {
   pacienteId: string;
   cuidadorId: string;
   instituicaoId: string;
-  dataHora: any; // Firebase Timestamp
+  dataHora: any;
   tipo: ActivityType;
   status: string;
   resumo?: string;
@@ -208,42 +240,10 @@ export interface ActivityLog {
   observacao?: string;
 }
 
-/**
- * Hook para pegar configuração de um tipo de atividade
- */
 export function useActivityType(tipo: ActivityType) {
   return ACTIVITY_TYPES[tipo];
 }
 
-/**
- * Hook para pegar todas os tipos de atividades
- */
 export function useAllActivityTypes() {
   return Object.values(ACTIVITY_TYPES);
-}
-
-/**
- * Função para obter a cor da classe Tailwind para um tipo
- */
-export function getActivityColorClass(tipo: ActivityType, variant: "bg" | "border" | "text" | "hover" = "bg") {
-  const config = ACTIVITY_TYPES[tipo];
-  if (variant === "bg") return config.bgColor;
-  if (variant === "border") return config.borderColor;
-  if (variant === "text") return config.textColor;
-  if (variant === "hover") return config.hoverColor;
-  return config.bgColor;
-}
-
-/**
- * Hook para filtrar por tipo
- */
-export function useFilterByActivityType(logs: ActivityLog[], tipo?: ActivityType) {
-  return useCallback(
-    (filtroTipo?: ActivityType) => {
-      const tipoFinal = filtroTipo || tipo;
-      if (!tipoFinal) return logs;
-      return logs.filter((log) => log.tipo === tipoFinal);
-    },
-    [logs, tipo]
-  );
 }
