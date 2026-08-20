@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Users, AlertTriangle, CheckCircle2, Brain, Sparkles, Loader2 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
@@ -11,6 +11,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
 import { Paciente, AIReport } from "../../lib/types";
+import { enriquecerPacientesComStatus } from "../../lib/statusSeguranca";
 
 interface DashboardAlert extends NormalizedLogRecord {
   pacienteNome: string;
@@ -142,22 +143,29 @@ export default function DashboardLobby() {
   };
 
 
-  // dados de risco serão calculados a partir dos logs em tempo real (substitui mocks)
+  // Pacientes enriquecidos com status dinâmico calculado a partir dos logs recentes e IA
+  const pacientesComStatus = useMemo(() => {
+    return enriquecerPacientesComStatus(pacientes, logs, aiReport);
+  }, [pacientes, logs, aiReport]);
 
-  const pacientesAtencao = pacientes.filter((paciente) => paciente.statusSeguranca !== "Verde");
+  const pacientesAtencao = pacientesComStatus.filter((paciente) => paciente.statusSeguranca !== "Verde");
 
   // Alertas transformados com pacienteNome
   const recentAlerts = logs.map((l) => ({
     ...l,
-    pacienteNome: pacientes.find((p) => p.id === l.pacienteId)?.nome || l.pacienteId,
+    pacienteNome: pacientesComStatus.find((p) => p.id === l.pacienteId)?.nome || l.pacienteId,
   }));
 
   const isAlert = (l: DashboardAlert) => {
     if (!l || !l.tipo) return false;
     if (typeFilter !== 'all' && l.tipo !== typeFilter) return false;
+    if (l.tipo === 'incidente') return true;
     if (l.tipo === 'alimentacao' && (l.status === 'Recusou' || l.status === 'Metade')) return true;
-    if (l.tipo === 'hidratacao' && l.status === 'Pouca') return true;
+    if (l.tipo === 'hidratacao' && (l.status === 'Pouca' || l.status === 'Recusou')) return true;
     if (l.tipo === 'medicacao' && l.status && l.status !== 'Administrada') return true;
+    if (l.tipo === 'cognitivo' && (l.status === 'Confuso' || l.status === 'Agressivo' || l.status === 'Deprimido' || l.status === 'Apático')) return true;
+    if (l.tipo === 'sono' && (l.status === 'Insônia' || l.status === 'Sono Agitado')) return true;
+    if (l.tipo === 'humor' && (l.status === 'Tristonho' || l.status === 'Ansioso')) return true;
     return false;
   };
 

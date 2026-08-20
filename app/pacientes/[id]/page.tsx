@@ -8,6 +8,7 @@ import { auth, db } from "../../../lib/firebase";
 import { useInstitucaoId } from "../../../lib/hooks";
 import { ACTIVITY_TYPES, ActivityType } from "../../../lib/activityTypes";
 import { normalizeLogRecords } from "../../../lib/logNormalizer";
+import { calcularStatusSeguranca } from "../../../lib/statusSeguranca";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore";
 
@@ -234,6 +235,13 @@ export default function ProntuarioDigitalPage() {
 
           setLogs(listaLogs);
           setLogsPage(1);
+
+          // Derivar status de segurança vivo
+          const statusCalculado = calcularStatusSeguranca(
+            { id: pacienteId, nome: pacienteData.nome, statusSeguranca: pacienteData.statusSeguranca },
+            listaLogs
+          );
+          setPaciente({ ...pacienteData, statusSeguranca: statusCalculado });
         }
       } catch (fetchError) {
         console.error("Erro ao buscar paciente:", fetchError);

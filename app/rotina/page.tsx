@@ -15,10 +15,12 @@ import DashboardLayout from "../components/DashboardLayout";
 import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, serverTimestamp, where, doc, updateDoc } from "firebase/firestore";
 import ActivitySection from "../components/ActivitySection";
 import { ACTIVITY_TYPES, ActivityType, useAllActivityTypes } from "../../lib/activityTypes";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { normalizeLogRecords } from "../../lib/logNormalizer";
+import { enriquecerPacientesComStatus, calcularStatusSeguranca } from "../../lib/statusSeguranca";
 
 interface Paciente {
   id: string;
@@ -129,7 +131,18 @@ export default function LogRotinaPage() {
           listaPacientes.push({ id: doc.id, ...doc.data() } as Paciente);
         });
 
-        setPacientes(listaPacientes);
+        // Buscar logs para derivar statusSeguranca vivo
+        const qLogs = query(
+          collection(db, "LogsRotina"),
+          where("instituicaoId", "==", instituicaoId)
+        );
+        const snapLogs = await getDocs(qLogs);
+        const logsList = normalizeLogRecords(
+          snapLogs.docs.map((d) => ({ id: d.id, ...d.data() }))
+        );
+
+        const pacientesComStatus = enriquecerPacientesComStatus(listaPacientes, logsList);
+        setPacientes(pacientesComStatus);
       } catch (error) {
         console.error("Erro ao buscar pacientes:", error);
         setToast({ message: "Não foi possível carregar os residentes.", variant: "error" });
@@ -248,6 +261,35 @@ export default function LogRotinaPage() {
           turnoEncerrado: true,
         });
       }
+
+      // Recalcular e atualizar o statusSeguranca do paciente
+      const novosLogs = conclusaoTurno.atividades.map((a) => ({
+        pacienteId: conclusaoTurno.pacienteId,
+        tipo: a.tipo,
+        status: a.status,
+        detalhe: a.detail,
+      }));
+      const pAtual = pacientes.find((p) => p.id === conclusaoTurno.pacienteId);
+      const novoStatus = calcularStatusSeguranca(
+        pAtual || { id: conclusaoTurno.pacienteId, nome: conclusaoTurno.pacienteNome },
+        novosLogs
+      );
+
+      if (novoStatus !== "Verde") {
+        try {
+          await updateDoc(doc(db, "Pacientes", conclusaoTurno.pacienteId), {
+            statusSeguranca: novoStatus,
+          });
+        } catch (updErr) {
+          console.warn("Falha ao atualizar statusSeguranca no Firestore:", updErr);
+        }
+      }
+
+      setPacientes((prev) =>
+        prev.map((p) =>
+          p.id === conclusaoTurno.pacienteId ? { ...p, statusSeguranca: novoStatus } : p
+        )
+      );
 
       setDrafts((current) => ({
         ...current,

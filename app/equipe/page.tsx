@@ -8,6 +8,8 @@ import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from "firebase/firestore";
 import { useInstitucaoId } from "../../lib/hooks";
+import { normalizeLogRecords } from "../../lib/logNormalizer";
+import { enriquecerPacientesComStatus } from "../../lib/statusSeguranca";
 
 /** Gera um código de convite curto de 6 caracteres alfanuméricos */
 function gerarCodigoConvite(): string {
@@ -109,7 +111,18 @@ export default function EquipePage() {
           listaPacientes.push({ id: docSnap.id, ...docSnap.data() } as Paciente);
         });
 
-        setPacientes(listaPacientes);
+        // Buscar logs para derivar statusSeguranca vivo
+        const qLogs = query(
+          collection(db, "LogsRotina"),
+          where("instituicaoId", "==", instituicaoId)
+        );
+        const snapLogs = await getDocs(qLogs);
+        const logsList = normalizeLogRecords(
+          snapLogs.docs.map((d) => ({ id: d.id, ...d.data() }))
+        );
+
+        const pacientesComStatus = enriquecerPacientesComStatus(listaPacientes, logsList);
+        setPacientes(pacientesComStatus);
       } catch (err) {
         console.error("Erro ao carregar equipe:", err);
       } finally {

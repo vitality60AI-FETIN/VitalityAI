@@ -8,6 +8,8 @@ import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId, useCuidadorData } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { normalizeLogRecords } from "../../lib/logNormalizer";
+import { enriquecerPacientesComStatus } from "../../lib/statusSeguranca";
 
 interface Paciente {
   id: string;
@@ -59,7 +61,18 @@ export default function ProntuariosPage() {
           listaPacientes.push({ id: doc.id, ...doc.data() } as Paciente);
         });
 
-        setPacientes(listaPacientes);
+        // Buscar logs para derivar statusSeguranca vivo
+        const qLogs = query(
+          collection(db, "LogsRotina"),
+          where("instituicaoId", "==", instituicaoId)
+        );
+        const snapLogs = await getDocs(qLogs);
+        const logsList = normalizeLogRecords(
+          snapLogs.docs.map((d) => ({ id: d.id, ...d.data() }))
+        );
+
+        const pacientesComStatus = enriquecerPacientesComStatus(listaPacientes, logsList);
+        setPacientes(pacientesComStatus);
       } catch (error) {
         console.error("Erro ao buscar pacientes:", error);
       } finally {
