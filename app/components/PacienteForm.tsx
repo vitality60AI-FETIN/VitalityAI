@@ -13,6 +13,7 @@ export interface PacienteFormData {
   doencasCronicas: string;
   contatoEmergencia: string;
   objetivo: string;
+  consentimentoLGPD?: boolean;
 }
 
 interface ValidationErrors {
@@ -62,6 +63,11 @@ const validarDados = (data: PacienteFormData): ValidationErrors => {
     errors.contatoEmergencia = "Telefone inválido (mínimo 10 dígitos)";
   }
 
+  // Consentimento LGPD de Dados Sensíveis de Saúde (Art. 11 LGPD)
+  if (!data.consentimentoLGPD) {
+    errors.consentimentoLGPD = "Confirmação de consentimento LGPD do titular é obrigatória.";
+  }
+
   return errors;
 };
 
@@ -84,6 +90,7 @@ export default function PacienteForm({
     doencasCronicas: initialData?.doencasCronicas || "",
     contatoEmergencia: initialData?.contatoEmergencia || "",
     objetivo: initialData?.objetivo || "Manutenção de Massa Magra (Sarcopenia)",
+    consentimentoLGPD: initialData?.consentimentoLGPD ?? true,
   });
 
   const [errors, setErrors] = useState<ValidationErrors>({});
@@ -348,6 +355,42 @@ export default function PacienteForm({
             </p>
           </div>
         </div>
+      </section>
+
+      {/* SEÇÃO 4: COMPLIANCE LGPD (DADOS SENSÍVEIS DO TITULAR / IDOSO) */}
+      <section className="bg-slate-50/80 p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+        <h2 className="text-sm font-black text-slate-800 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white shadow-md">4</span>
+          Consentimento LGPD (Art. 11 - Dados Sensíveis de Saúde)
+        </h2>
+        <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-slate-200 shadow-sm">
+          <input
+            type="checkbox"
+            id="consentimentoLGPD"
+            name="consentimentoLGPD"
+            checked={Boolean(form.consentimentoLGPD)}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setForm((prev) => ({ ...prev, consentimentoLGPD: checked }));
+              if (checked && errors.consentimentoLGPD) {
+                setErrors((prev) => {
+                  const copy = { ...prev };
+                  delete copy.consentimentoLGPD;
+                  return copy;
+                });
+              }
+            }}
+            className="mt-1 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          />
+          <label htmlFor="consentimentoLGPD" className="text-sm text-slate-700 leading-relaxed cursor-pointer font-medium">
+            <strong>Autorização do Titular ou Responsável Legal</strong>: Confirmo que a instituição possui o consentimento formal e assinado pelo idoso residente (ou seu curador/responsável legal) autorizando a coleta, armazenamento e processamento de seus dados sensíveis de saúde nesta plataforma, em conformidade com o Art. 11 da LGPD (Lei nº 13.709/2018).
+          </label>
+        </div>
+        {errors.consentimentoLGPD && (
+          <p className="text-xs text-red-600 bg-red-50 p-3 rounded-xl border border-red-200 mt-3 font-bold">
+            ⚠️ {errors.consentimentoLGPD}
+          </p>
+        )}
       </section>
 
       {/* Submit Button */}
