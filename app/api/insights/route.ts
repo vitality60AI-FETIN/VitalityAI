@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { verifyFirebaseToken } from '@/lib/firebaseAdmin';
 import { checkRateLimit } from '@/lib/rateLimit';
 
 const RATE_LIMIT_MAX_REQUESTS = 10;
@@ -78,11 +78,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Token ausente.' }, { status: 401 });
     }
 
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
-    } catch {
-      return NextResponse.json({ error: 'Token inválido.' }, { status: 401 });
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await verifyFirebaseToken(token);
+    if (!decodedToken || !decodedToken.uid) {
+      return NextResponse.json({ error: 'Token inválido ou expirado.' }, { status: 401 });
     }
 
     // ─── RATE LIMIT ───
