@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users, AlertTriangle, CheckCircle2, TrendingUp, Brain, Sparkles, Loader2, BarChart3 } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Cell, Legend } from 'recharts';
+import { Users, AlertTriangle, CheckCircle2, Brain, Sparkles, Loader2 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 
 import { auth, db } from "../../lib/firebase";
@@ -120,18 +119,28 @@ export default function DashboardLobby() {
         body: JSON.stringify({ patients: pacientes, logs: logs.slice(0, 50) })
       });
       const data = await res.json();
-      if (!data.error && data.result) {
+      console.log("[Vitality AI] Resposta da API:", data);
+      if (data.error) {
+        console.error("[Vitality AI] Erro da API:", data.error);
+        return;
+      }
+      if (data.result) {
         let raw = data.result;
-        raw = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-        const parsed = JSON.parse(raw);
+        // Limpar possíveis marcadores de code block
+        if (typeof raw === 'string') {
+          raw = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+        }
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        console.log("[Vitality AI] Relatório parseado:", parsed);
         setAiReport(parsed);
       }
     } catch (e) {
-      console.error(e);
+      console.error("[Vitality AI] Erro ao gerar relatório:", e);
     } finally {
       setIsGeneratingAI(false);
     }
   };
+
 
   // dados de risco serão calculados a partir dos logs em tempo real (substitui mocks)
 
@@ -163,29 +172,8 @@ export default function DashboardLobby() {
     return isAlert(a);
   });
 
-  // agregação para gráfico de risco (últimos 7 dias)
-  const dadosRisco = (() => {
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - (6 - i));
-      return d;
-    });
 
-    return days.map((d) => {
-      const start = d.getTime();
-      const end = start + 24 * 60 * 60 * 1000;
-      const count = logs.filter((l) => {
-        const ts = l.dataHora && typeof l.dataHora.toDate === 'function' ? l.dataHora.toDate().getTime() : 0;
-        if (ts < start || ts >= end) return false;
-        if (l.tipo === 'alimentacao' && (l.status === 'Recusou' || l.status === 'Metade')) return true;
-        if (l.tipo === 'hidratacao' && l.status === 'Pouca') return true;
-        if (l.tipo === 'medicacao' && l.status && l.status !== 'Administrada') return true;
-        return false;
-      }).length;
-      return { dia: d.toLocaleDateString('pt-BR', { weekday: 'short' }), incidentes: count };
-    });
-  })();
+
 
   if (loading) {
     return (
@@ -288,7 +276,7 @@ export default function DashboardLobby() {
                         Análise de Saúde Geriátrica IA
                       </h3>
                       <p className="text-sm text-slate-500 mt-1">
-                        Relatório inteligente com gráficos gerados por IA a partir dos dados reais.
+                        Resumo situacional gerado por IA a partir dos registros.
                       </p>
                     </div>
                     <div className="flex items-center gap-3 print:hidden">
@@ -381,151 +369,6 @@ export default function DashboardLobby() {
                         </div>
                       )}
 
-
-                      {/* ─── GRÁFICOS INTELIGENTES IA ─── */}
-                      {aiReport.graficos && (
-                        <div className="space-y-6 pt-4">
-                          <div className="flex items-center gap-3 border-t border-indigo-100 pt-6">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-                              <BarChart3 className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <h4 className="text-lg font-extrabold tracking-tight text-slate-900">Visualização Inteligente</h4>
-                              <p className="text-xs text-slate-500">Gráficos gerados pela IA com base nos registros</p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Gráfico 1: Distribuição de Status por Categoria */}
-                            {aiReport.graficos.distribuicao_status && aiReport.graficos.distribuicao_status.length > 0 && (
-                              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                <h5 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Status por Categoria</h5>
-                                <div className="h-64">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={aiReport.graficos.distribuicao_status} margin={{ top: 5, right: 10, left: -15, bottom: 5 }}>
-                                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                                      <XAxis dataKey="categoria" tickLine={false} axisLine={false} stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                                      <YAxis tickLine={false} axisLine={false} stroke="#94a3b8" allowDecimals={false} tick={{ fontSize: 11 }} />
-                                      <Tooltip
-                                        contentStyle={{
-                                          borderRadius: "12px",
-                                          border: "1px solid #e2e8f0",
-                                          boxShadow: "0 8px 24px rgba(15, 23, 42, 0.1)",
-                                          fontSize: "13px",
-                                        }}
-                                      />
-                                      <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
-                                      <Bar dataKey="ok" name="✅ Adequado" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-                                      <Bar dataKey="alerta" name="⚠️ Atenção" stackId="a" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                                    </BarChart>
-                                  </ResponsiveContainer>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Gráfico 2: Pacientes por Nível de Risco */}
-                            {aiReport.graficos.pacientes_risco && aiReport.graficos.pacientes_risco.length > 0 && (
-                              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                <h5 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Nível de Risco por Paciente</h5>
-                                <div className="h-64">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart
-                                      data={aiReport.graficos.pacientes_risco}
-                                      layout="vertical"
-                                      margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
-                                    >
-                                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                                      <XAxis type="number" domain={[0, 10]} tickLine={false} axisLine={false} stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                                      <YAxis dataKey="nome" type="category" tickLine={false} axisLine={false} stroke="#94a3b8" width={90} tick={{ fontSize: 11 }} />
-                                      <Tooltip
-                                        contentStyle={{
-                                          borderRadius: "12px",
-                                          border: "1px solid #e2e8f0",
-                                          boxShadow: "0 8px 24px rgba(15, 23, 42, 0.1)",
-                                          fontSize: "13px",
-                                        }}
-                                        formatter={(value) => [`${value}/10`, "Risco"]}
-                                      />
-                                      <Bar dataKey="nivel" name="Risco" radius={[0, 6, 6, 0]} barSize={20}>
-                                        {aiReport.graficos.pacientes_risco.map((entry, index) => (
-                                          <Cell
-                                            key={`cell-${index}`}
-                                            fill={
-                                              entry.nivel >= 7 ? "#ef4444" :
-                                              entry.nivel >= 4 ? "#f59e0b" :
-                                              "#10b981"
-                                            }
-                                          />
-                                        ))}
-                                      </Bar>
-                                    </BarChart>
-                                  </ResponsiveContainer>
-                                </div>
-                                <div className="mt-3 flex items-center gap-4 text-[11px] text-slate-500">
-                                  <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span> Baixo (0-3)</span>
-                                  <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500"></span> Moderado (4-6)</span>
-                                  <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500"></span> Alto (7-10)</span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Gráfico 3: Tendência Semanal */}
-                            {aiReport.graficos.tendencia_semanal && aiReport.graficos.tendencia_semanal.length > 1 && (
-                              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-                                <h5 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Tendência Semanal</h5>
-                                <div className="h-64">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={aiReport.graficos.tendencia_semanal} margin={{ top: 5, right: 10, left: -15, bottom: 5 }}>
-                                      <defs>
-                                        <linearGradient id="colorPositivos" x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
-                                        </linearGradient>
-                                        <linearGradient id="colorIncidentesIA" x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.02} />
-                                        </linearGradient>
-                                      </defs>
-                                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                                      <XAxis dataKey="dia" tickLine={false} axisLine={false} stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                                      <YAxis tickLine={false} axisLine={false} stroke="#94a3b8" allowDecimals={false} tick={{ fontSize: 11 }} />
-                                      <Tooltip
-                                        contentStyle={{
-                                          borderRadius: "12px",
-                                          border: "1px solid #e2e8f0",
-                                          boxShadow: "0 8px 24px rgba(15, 23, 42, 0.1)",
-                                          fontSize: "13px",
-                                        }}
-                                      />
-                                      <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
-                                      <Area
-                                        type="monotone"
-                                        dataKey="positivos"
-                                        name="✅ Positivos"
-                                        stroke="#10b981"
-                                        strokeWidth={2.5}
-                                        fill="url(#colorPositivos)"
-                                        dot={{ r: 3, fill: "#10b981", strokeWidth: 2, stroke: "#fff" }}
-                                        activeDot={{ r: 5 }}
-                                      />
-                                      <Area
-                                        type="monotone"
-                                        dataKey="incidentes"
-                                        name="⚠️ Incidentes"
-                                        stroke="#ef4444"
-                                        strokeWidth={2.5}
-                                        fill="url(#colorIncidentesIA)"
-                                        dot={{ r: 3, fill: "#ef4444", strokeWidth: 2, stroke: "#fff" }}
-                                        activeDot={{ r: 5 }}
-                                      />
-                                    </AreaChart>
-                                  </ResponsiveContainer>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -587,49 +430,6 @@ export default function DashboardLobby() {
               </section>
 
               <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:hidden">
-                <div className="lg:col-span-2 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
-                  <div className="mb-6 flex items-center justify-between gap-4">
-                    <div>
-                      <p className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                        <TrendingUp className="h-3.5 w-3.5" />
-                        Indicador semanal
-                      </p>
-                      <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-900">Risco Populacional</h2>
-                    </div>
-                  </div>
-
-                  <div className="h-80 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={dadosRisco} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="colorIncidentes" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
-                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0.02} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                        <XAxis dataKey="dia" tickLine={false} axisLine={false} stroke="#64748b" />
-                        <YAxis tickLine={false} axisLine={false} stroke="#64748b" allowDecimals={false} />
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: "16px",
-                            border: "1px solid #e2e8f0",
-                            boxShadow: "0 12px 32px rgba(15, 23, 42, 0.12)",
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="incidentes"
-                          stroke="#2563eb"
-                          strokeWidth={3}
-                          fill="url(#colorIncidentes)"
-                          dot={{ r: 3, fill: "#2563eb", strokeWidth: 2, stroke: "#fff" }}
-                          activeDot={{ r: 6 }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
 
                 <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
                   <div className="mb-6">
