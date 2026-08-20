@@ -45,27 +45,30 @@ function fmtTs(ts: any): string {
   return "";
 }
 
-// ─── SYSTEM INSTRUCTIONS ───
-const REPORT_INSTRUCTION = `# VITALITY AI — Motor de Sumarização Clínica
-Workflow de passo único. Latência é prioridade máxima.
+// ─── SYSTEM INSTRUCTION CONVERSACIONAL ───
+const CHAT_INSTRUCTION = `Você é o assistente inteligente do Vitality AI, especialista em suporte, fisiologia geriátrica e análise de saúde para cuidadores em ILPIs (Instituições de Longa Permanência para Idosos).
+Sua função é analisar os dados de rotina dos residentes e responder às dúvidas da equipe com clareza, empatia e utilidade prática.
 
-REGRAS:
-1. Baseie-se EXCLUSIVAMENTE nos logs fornecidos. Não invente dados.
-2. Zero filler — sem saudações, sem introduções, sem justificativas.
-3. Se não houver logs, informe ausência de registros e retorne arrays vazios.
+REGRAS DE CONDUTA & FORMATO:
 
-Retorne JSON conforme o schema fornecido.`;
+1. ESTRUTURA DE "PLANO PERSONALIZADO":
+   - Sempre que solicitado um plano, orientação, recomendação ou o "plano do [Nome do Residente]", apresente sob a estrutura de "## Plano Personalizado - [Nome do Residente]".
+   - O plano DEVE ser prescritivo e acionável, cobrindo obrigatoriamente 4 pilares:
+     a) 🏋️‍♂️ **Exercícios de Força & Equilíbrio**: Especifique a frequência (ex: 2–3x/semana) e tipos de exercícios adequados à mobilidade do residente (ex: treino de sentar-e-levantar, fortalecimento de quadríceps, treino de marcha guiada).
+     b) 🥗 **Nutrição & Proteína (Combate à Sarcopenia)**: Recomendações focadas na prevenção da perda de massa muscular, sugerindo fracionamento proteico (ex: reforço proteico no café da manhã e lanches) e adequação de textura.
+     c) 💧 **Meta de Hidratação**: Defina uma meta hídrica fracionada diária (ex: 1.5L a 2.0L/dia, fracionados em copos em horários estratégicos).
+     d) 🛡️ **Protocolo de Segurança & Prevenção**: Ações específicas para evitar quedas, adaptar ambiente ou monitorar medicamentos e sinais vitais.
 
-const CHAT_INSTRUCTION = `Você é uma IA analista de saúde geriátrica do Vitality AI. Auxilia cuidadores interpretando dados de idosos em ILPIs.
+2. ELIMINAÇÃO DE REPETIÇÕES GENÉRICAS (PERFIL ÚNICO POR RESIDENTE):
+   - NUNCA retorne planos genéricos ou frases idênticas para residentes diferentes (evite clichês como "incentivar atividades leves" ou "porções menores").
+   - Cada idoso DEVE ter um plano estritamente individualizado com base no seu perfil (idade, gênero, restrições físicas, condições crônicas e falhas/alertas registrados nos logs recentes).
+   - Se o idoso registrou recusa alimentar, enfatize estratégias nutricionais; se teve queda/dor, foque em força de membros inferiores e prevenção de acidentes; se teve insônia/cognitivo alterado, direcione para higiene do sono e estímulos cognitivos.
 
-REGRAS:
-1. NÃO é médico. Nunca diagnostique ou prescreva.
-2. Baseie-se EXCLUSIVAMENTE nos dados fornecidos. Nunca invente.
-3. Se não há registro de hoje, diga claramente.
-4. Cite nome do paciente, data e valor exato do dado.
-5. Tom acolhedor, claro, sem jargões.
-6. Use Markdown: seções com ##, listas com -, **negrito** para destaques.
-7. Máximo 400 palavras.`;
+3. REGRAS GERAIS:
+   - NÃO É MÉDICO: Nunca forneça diagnósticos definitivos ou prescrições farmacológicas. Em episódios graves (como quedas com trauma, febre persistente ou broncoaspiração), recomende avaliação médica imediata.
+   - FIDELIDADE AOS DADOS: Baseie-se nos dados fornecidos no contexto. Se faltarem informações sobre determinado residente, avise claramente.
+   - RASTREABILIDADE: Cite nome, idade e registros relevantes do histórico do idoso.
+   - FORMATO: Responda em Português (Brasil) utilizando Markdown estruturado (títulos ##, listas -, negritos). Seja claro, direto e empático (máximo 450 palavras).`;
 
 export async function POST(req: Request) {
   try {
@@ -94,43 +97,28 @@ export async function POST(req: Request) {
 
     // ─── PARSE BODY ───
     const body = await req.json();
-    const { prompt, patients, logs, mode } = body;
-    const isChat = mode === "chat";
+    const { prompt, patients, logs } = body;
 
-    // ─── DADOS COMPACTOS ───
+    // ─── DADOS COMPACTOS E ENRIQUECIDOS ───
     const hoje = new Date().toLocaleDateString('pt-BR');
     const pacientesMin = (patients || []).map((p: any) => `${p.nome || "?"} (${p.idade || "?"}a)`);
-    const logsMin = (logs || []).slice(0, 50).map((l: any) => {
+    const logsMin = (logs || []).slice(0, 60).map((l: any) => {
       const nome = (patients || []).find((p: any) => p.id === l.pacienteId)?.nome || l.pacienteId || "?";
-      return `${nome}|${l.tipoLabel || l.tipo || "?"}|${l.status || "?"}|${fmtTs(l.dataHora) || l.dataTurno || "?"}`;
+      const data = fmtTs(l.dataHora) || l.dataTurno || "?";
+      const tipo = l.tipoLabel || l.tipo || "?";
+      const status = l.status || "?";
+      const obs = l.detalhe || l.observacaoTurno || l.observacao || l.resumo || "";
+      return obs ? `${nome} | ${tipo}: ${status} (${obs}) | Data: ${data}` : `${nome} | ${tipo}: ${status} | Data: ${data}`;
     });
 
-    // ─── PROMPT ───
-    let finalPrompt: string;
-    if (isChat) {
-      finalPrompt = prompt || "Analise os dados.";
-      finalPrompt += `\n\nDATA ATUAL: ${hoje}\nPACIENTES: ${pacientesMin.join(", ")}\nLOGS:\n${logsMin.join("\n")}`;
-    } else {
-      finalPrompt = `DATA:${hoje}\nPACIENTES:${pacientesMin.join(",")}\nLOGS:\n${logsMin.join("\n")}`;
-    }
+    // ─── PROMPT FINAL DO AGENTE ───
+    let finalPrompt = prompt || "Faça uma síntese situacional da rotina dos residentes.";
+    finalPrompt += `\n\nDATA ATUAL: ${hoje}\nPACIENTES CADASTRADOS: ${pacientesMin.join(", ")}\nLOGS RECENTES DE ROTINA:\n${logsMin.join("\n")}`;
 
     // ─── CONFIG ───
     const config: Record<string, unknown> = {
-      systemInstruction: isChat ? CHAT_INSTRUCTION : REPORT_INSTRUCTION,
+      systemInstruction: CHAT_INSTRUCTION,
     };
-
-    if (!isChat) {
-      config.responseMimeType = "application/json";
-      config.responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-          resumo_turno: { type: Type.STRING },
-          sinais_alerta: { type: Type.ARRAY, items: { type: Type.STRING } },
-          acoes_pendentes: { type: Type.ARRAY, items: { type: Type.STRING } },
-        },
-        required: ["resumo_turno", "sinais_alerta", "acoes_pendentes"]
-      };
-    }
 
     // ─── CALL AI COM CASCATA DE MODELOS ───
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -164,18 +152,6 @@ export async function POST(req: Request) {
     // Se nenhum modelo funcionou
     if (!responseText && lastError) {
       throw lastError;
-    }
-
-    if (!isChat) {
-      const aiResult = responseText ? JSON.parse(responseText) : {};
-      const report = {
-        resumo_geral: aiResult.resumo_turno || "Sem dados disponíveis.",
-        pontos_atencao: aiResult.sinais_alerta || [],
-        recomendacoes_rotina: (aiResult.acoes_pendentes || []).length > 0
-          ? [{ paciente: "Geral", data_referencia: hoje, acoes: aiResult.acoes_pendentes }]
-          : [],
-      };
-      return NextResponse.json({ result: JSON.stringify(report) });
     }
 
     return NextResponse.json({ result: responseText });

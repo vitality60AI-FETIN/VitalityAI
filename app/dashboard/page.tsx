@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users, AlertTriangle, CheckCircle2, Brain, Sparkles, Loader2 } from "lucide-react";
+import { Users, AlertTriangle, CheckCircle2 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 
 import { auth, db } from "../../lib/firebase";
@@ -10,7 +10,7 @@ import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
-import { Paciente, AIReport } from "../../lib/types";
+import { Paciente } from "../../lib/types";
 import { enriquecerPacientesComStatus } from "../../lib/statusSeguranca";
 
 interface DashboardAlert extends NormalizedLogRecord {
@@ -25,8 +25,6 @@ export default function DashboardLobby() {
   const [timeRange, setTimeRange] = useState<'24h' | '7d'>('24h');
   const [typeFilter, setTypeFilter] = useState<'all' | 'alimentacao' | 'hidratacao' | 'medicacao'>('all');
   const [patientFilter, setPatientFilter] = useState('');
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiReport, setAiReport] = useState<AIReport | null>(null);
 
   const router = useRouter();
   const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
@@ -106,47 +104,10 @@ export default function DashboardLobby() {
     };
   }, [router, instituicaoId, loadingInstituicao]);
 
-  const handleGenerateReport = async () => {
-    if (pacientes.length === 0) return;
-    setIsGeneratingAI(true);
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await fetch("/api/insights", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ patients: pacientes, logs: logs.slice(0, 50) })
-      });
-      const data = await res.json();
-      console.log("[Vitality AI] Resposta da API:", data);
-      if (data.error) {
-        console.error("[Vitality AI] Erro da API:", data.error);
-        return;
-      }
-      if (data.result) {
-        let raw = data.result;
-        // Limpar possíveis marcadores de code block
-        if (typeof raw === 'string') {
-          raw = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-        }
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        console.log("[Vitality AI] Relatório parseado:", parsed);
-        setAiReport(parsed);
-      }
-    } catch (e) {
-      console.error("[Vitality AI] Erro ao gerar relatório:", e);
-    } finally {
-      setIsGeneratingAI(false);
-    }
-  };
-
-
-  // Pacientes enriquecidos com status dinâmico calculado a partir dos logs recentes e IA
+  // Pacientes enriquecidos com status dinâmico calculado a partir dos logs recentes
   const pacientesComStatus = useMemo(() => {
-    return enriquecerPacientesComStatus(pacientes, logs, aiReport);
-  }, [pacientes, logs, aiReport]);
+    return enriquecerPacientesComStatus(pacientes, logs);
+  }, [pacientes, logs]);
 
   const pacientesAtencao = pacientesComStatus.filter((paciente) => paciente.statusSeguranca !== "Verde");
 
@@ -251,134 +212,6 @@ export default function DashboardLobby() {
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
                   </div>
-                </div>
-              </section>
-
-              {/* Análise Inteligente IA */}
-              <section className="mt-6 print:mt-0">
-                <div className="rounded-3xl border border-indigo-100/60 bg-gradient-to-br from-indigo-50/50 to-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)] print:border-none print:shadow-none print:bg-none print:p-0 print:block">
-                  
-                  {/* Cabeçalho exclusivo para impressão (PDF) */}
-                  <div className="hidden print:flex flex-col mb-8 border-b border-slate-200 pb-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M5 5l7 14 7-14" /></svg>
-                        </div>
-                        <div>
-                          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Vitalidade <span className="text-blue-600 italic">AI</span></h2>
-                          <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Relatório Inteligente de Saúde</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-slate-700">{new Date().toLocaleDateString('pt-BR')}</p>
-                        <p className="text-xs font-medium text-slate-500">{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
-                    <div>
-                      <h3 className="text-xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-                        <Brain className="h-6 w-6 text-indigo-600" />
-                        Análise de Saúde Geriátrica IA
-                      </h3>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Resumo situacional gerado por IA a partir dos registros.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 print:hidden">
-                      {aiReport && (
-                        <button
-                          onClick={() => window.print()}
-                          className="flex items-center justify-center gap-2 rounded-full border border-indigo-200 bg-white px-5 py-3 text-sm font-bold text-indigo-700 shadow-sm transition-all hover:bg-indigo-50 active:scale-95"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                          Salvar PDF
-                        </button>
-                      )}
-                      <button
-                        onClick={handleGenerateReport}
-                        disabled={isGeneratingAI || pacientes.length === 0}
-                        className="flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-indigo-200 transition-all hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
-                      >
-                        {isGeneratingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                        {isGeneratingAI ? "Analisando..." : "Gerar Relatório Inteligente"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {aiReport && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      {/* Resumo + Pontos + Recomendações */}
-                      <div className="rounded-2xl border border-indigo-200 bg-white p-5 shadow-sm">
-                        <h4 className="text-sm font-bold uppercase tracking-widest text-indigo-400 mb-2">Resumo Geral</h4>
-                        <p className="text-slate-700 leading-relaxed">{aiReport.resumo_geral}</p>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
-                          <h4 className="text-sm font-bold uppercase tracking-widest text-amber-500 mb-3 flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4" />
-                            Pontos de Atenção
-                          </h4>
-                          <ul className="space-y-2">
-                            {aiReport.pontos_atencao?.map((pt, i) => (
-                              <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
-                                <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0"></div>
-                                <span>{pt}</span>
-                              </li>
-                            ))}
-                            {(!aiReport.pontos_atencao || aiReport.pontos_atencao.length === 0) && (
-                              <li className="text-sm text-slate-400 italic">Nenhum ponto de atenção identificado.</li>
-                            )}
-                          </ul>
-                        </div>
-                        
-                      </div>
-
-                      {/* Recomendações por Paciente e Data */}
-                      {aiReport.recomendacoes_rotina && aiReport.recomendacoes_rotina.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-4">
-                            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                            <h4 className="text-base font-extrabold tracking-tight text-slate-900">Recomendações por Paciente</h4>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {aiReport.recomendacoes_rotina.map((rec, i) => (
-                              <div key={i} className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-4 shadow-sm">
-                                <div className="flex items-start justify-between gap-2 mb-3">
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 font-black text-sm">
-                                      {rec.paciente?.charAt(0) ?? "?"}
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-800">{rec.paciente}</span>
-                                  </div>
-                                  <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
-                                    Ref: {rec.data_referencia}
-                                  </span>
-                                </div>
-                                <ul className="space-y-1.5">
-                                  {rec.acoes?.map((acao, j) => (
-                                    <li key={j} className="flex items-start gap-2 text-sm text-slate-700">
-                                      <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                      {acao}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {(!aiReport.recomendacoes_rotina || aiReport.recomendacoes_rotina.length === 0) && (
-                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 font-medium">
-                          ✅ Nenhuma ação necessária no momento — todos os residentes estão com bom acompanhamento.
-                        </div>
-                      )}
-
-                    </div>
-                  )}
                 </div>
               </section>
 

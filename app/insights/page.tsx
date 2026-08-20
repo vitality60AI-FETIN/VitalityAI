@@ -182,10 +182,37 @@ export default function InsightsPage() {
                 <textarea 
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Ex: Como posso melhorar a aceitação da medicação para idosos com Alzheimer?"
-                  className="w-full h-32 bg-transparent text-lg font-medium text-slate-800 placeholder-slate-300 outline-none resize-none leading-relaxed"
+                  placeholder="Ex: Gerar Plano Personalizado de cuidados, exercícios e nutrição para a Dona Maria..."
+                  className="w-full h-28 bg-transparent text-lg font-medium text-slate-800 placeholder-slate-300 outline-none resize-none leading-relaxed"
                 />
-                <div className="flex justify-end">
+
+                {/* Sugestões Rápidas */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">Sugestões:</span>
+                  <button
+                    type="button"
+                    onClick={() => setPrompt("Gerar Plano Personalizado de exercícios e nutrição proteica para combate à perda de massa muscular dos residentes.")}
+                    className="rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 text-xs font-bold transition-colors"
+                  >
+                    🏋️‍♂️ Plano Personalizado de Exercícios & Proteína
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrompt("Qual o Plano Personalizado de cuidados e prevenção para os residentes que exigem atenção ou alerta?")}
+                    className="rounded-full bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-1.5 text-xs font-bold transition-colors"
+                  >
+                    📋 Plano dos Idosos em Atenção
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrompt("Quais estratégias nutricionais e de hidratação fracionada são recomendadas com base nos logs recentes?")}
+                    className="rounded-full bg-sky-50 hover:bg-sky-100 text-sky-700 px-3 py-1.5 text-xs font-bold transition-colors"
+                  >
+                    💧 Meta de Hidratação & Nutrição
+                  </button>
+                </div>
+
+                <div className="flex justify-end pt-2">
                   <button
                     onClick={handleGenerateInsight}
                     disabled={isGenerating || !prompt.trim()}
