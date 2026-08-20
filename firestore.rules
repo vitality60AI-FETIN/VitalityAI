@@ -28,13 +28,13 @@ service cloud.firestore {
     // ──────────────────────────────────────────────
     // INSTITUIÇÕES
     // ──────────────────────────────────────────────
-    // • Qualquer autenticado pode ler (necessário durante onboarding para buscar por nome)
-    // • Qualquer autenticado pode criar (necessário para criar nova instituição no onboarding)
+    // • Qualquer autenticado pode ler (necessário durante onboarding)
+    // • Qualquer autenticado pode criar registrando seu UID em criadoPorUid
     // • Apenas Admin da própria instituição pode atualizar
     // • Exclusão bloqueada
     match /Instituicoes/{instId} {
       allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.criadoPorUid == request.auth.uid;
       allow update: if isAuthenticated() && userInstituicaoId() == instId && isAdmin();
       allow delete: if false;
     }
@@ -42,9 +42,9 @@ service cloud.firestore {
     // ──────────────────────────────────────────────
     // CUIDADORES (perfil dos usuários)
     // ──────────────────────────────────────────────
-    // • Usuário sempre pode ler/criar seu próprio documento (onboarding + hooks)
-    // • Membros da mesma instituição podem ler (página Equipe)
-    // • Apenas o próprio usuário ou Admin da mesma instituição pode atualizar (troca de role)
+    // • Usuário pode ler seu próprio documento ou membros da mesma instituição
+    // • Criação: O usuário cria seu próprio perfil. Se tentar criar como "Admin", deve ser o fundador da instituição (criadoPorUid).
+    // • Atualização: Usuário altera dados pessoais sem mudar de instituição ou auto-promover role. Admin da instituição pode promover membros.
     // • Exclusão bloqueada
     match /Cuidadores/{cuidadorId} {
       allow read: if isAuthenticated() && (
@@ -52,11 +52,23 @@ service cloud.firestore {
         resource.data.instituicaoId == userInstituicaoId()
       );
 
-      allow create: if isAuthenticated() && request.auth.uid == cuidadorId;
+      allow create: if isAuthenticated() && request.auth.uid == cuidadorId && (
+        (request.resource.data.role == "Admin" && 
+         get(/databases/$(database)/documents/Instituicoes/$(request.resource.data.instituicaoId)).data.criadoPorUid == request.auth.uid) ||
+        request.resource.data.role == "Cuidador"
+      );
 
       allow update: if isAuthenticated() && (
-        request.auth.uid == cuidadorId ||
-        (resource.data.instituicaoId == userInstituicaoId() && isAdmin())
+        (
+          request.auth.uid == cuidadorId &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.instituicaoId == resource.data.instituicaoId
+        ) ||
+        (
+          resource.data.instituicaoId == userInstituicaoId() &&
+          isAdmin() &&
+          request.resource.data.instituicaoId == resource.data.instituicaoId
+        )
       );
 
       allow delete: if false;
