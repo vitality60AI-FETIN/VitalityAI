@@ -4,7 +4,10 @@ import { AIReport, Paciente } from "./types";
 export type StatusSeguranca = "Verde" | "Amarelo" | "Vermelho";
 
 /**
- * Deriva o status de segurança do paciente com base nos logs recentes e no relatório de IA.
+ * Deriva dinamicamente o status de segurança do paciente com base estrita nos logs recentes.
+ * • "Verde" (Estável): Rotina regular, alimentação boa, medicação administrada, sem incidentes.
+ * • "Amarelo" (Atenção): Refeição parcial (metade), hidratação pouca, medicação atrasada, insônia ou humor tristonho.
+ * • "Vermelho" (Alerta Crítico): Incidentes (quedas, febre), medicação recusada, dor aguda ou confusão/agressividade.
  */
 export function calcularStatusSeguranca(
   paciente: { id?: string; nome?: string; statusSeguranca?: string },
@@ -23,16 +26,31 @@ export function calcularStatusSeguranca(
     return false;
   });
 
-  let maxRisco: StatusSeguranca = "Verde";
+  // Se não há logs registrados para este paciente, seu status padrão é Estável (Verde)
+  if (pacienteLogs.length === 0) {
+    return "Verde";
+  }
 
-  // Analisar logs
+  let maxRisco: StatusSeguranca = "Verde";
+  const now = Date.now();
+  const seteDiasMs = 7 * 24 * 60 * 1000;
+
+  // Analisar logs do paciente do mais recente para o mais antigo
   for (const log of pacienteLogs) {
+    const ts =
+      log.dataHora && typeof log.dataHora.toDate === "function"
+        ? log.dataHora.toDate().getTime()
+        : 0;
+
+    // Considerar logs dos últimos 7 dias para avaliação de risco
+    if (ts && now - ts > seteDiasMs) continue;
+
     const tipo = String(log.tipo || log.tipoRotina || log.categoria || "").toLowerCase();
     const status = String(log.status || log.valor || log.estado || "").toLowerCase();
     const detalhe = String(log.detalhe || log.detail || log.observacao || log.resumo || "").toLowerCase();
     const textCombined = `${tipo} ${status} ${detalhe}`;
 
-    // Nível Vermelho (Alerta / Risco Crítico)
+    // Nível Vermelho (Incidentes Críticos / Alertas de Urgência)
     if (
       tipo === "incidente" ||
       status.includes("queda") ||
@@ -40,28 +58,24 @@ export function calcularStatusSeguranca(
       status.includes("desidratação") ||
       status.includes("infecção") ||
       status.includes("urgênc") ||
-      (tipo === "medicacao" && (status.includes("recusa") || status.includes("não"))) ||
+      (tipo === "medicacao" && (status.includes("recusa") || status.includes("não administ"))) ||
       (tipo === "cognitivo" && (status.includes("agressiv") || status.includes("desorientad"))) ||
       textCombined.includes("queda") ||
       textCombined.includes("febre") ||
       textCombined.includes("emergência")
     ) {
       maxRisco = "Vermelho";
-      break; // Maior risco atingido
+      break; // Risco máximo atingido
     }
 
-    // Nível Amarelo (Atenção / Alerta Moderado)
+    // Nível Amarelo (Atenção Moderada)
     if (
-      (tipo === "alimentacao" && (status.includes("recus") || status.includes("metade") || status.includes("não"))) ||
+      (tipo === "alimentacao" && (status.includes("recus") || status.includes("metade"))) ||
       (tipo === "hidratacao" && (status.includes("pouca") || status.includes("recus"))) ||
       (tipo === "medicacao" && status.includes("atrasad")) ||
       (tipo === "sono" && (status.includes("insônia") || status.includes("agitado"))) ||
       (tipo === "humor" && (status.includes("triste") || status.includes("ansioso"))) ||
-      (tipo === "cognitivo" && (status.includes("deprimid") || status.includes("apátic"))) ||
-      textCombined.includes("recusou") ||
-      textCombined.includes("pouca") ||
-      textCombined.includes("atrasad") ||
-      textCombined.includes("dor")
+      (tipo === "cognitivo" && (status.includes("deprimid") || status.includes("apátic")))
     ) {
       if (maxRisco === "Verde") {
         maxRisco = "Amarelo";
@@ -69,30 +83,11 @@ export function calcularStatusSeguranca(
     }
   }
 
-  // Analisar relatório de IA (se houver)
-  if (aiReport && pNome) {
-    const pontosAtencaoStr = (aiReport.pontos_atencao || []).join(" ").toLowerCase();
-    const temRecomendacao = (aiReport.recomendacoes_rotina || []).some(
-      (r) => r.paciente && r.paciente.toLowerCase().includes(pNome)
-    );
-
-    if (pontosAtencaoStr.includes(pNome) || temRecomendacao) {
-      if (maxRisco === "Verde") {
-        maxRisco = "Amarelo";
-      }
-    }
-  }
-
-  // Se o paciente já tiver status explícito no Firestore (ex: "Amarelo" ou "Vermelho") e nenhum log limpou isso
-  if (maxRisco === "Verde" && paciente.statusSeguranca && paciente.statusSeguranca !== "Verde") {
-    return paciente.statusSeguranca as StatusSeguranca;
-  }
-
   return maxRisco;
 }
 
 /**
- * Retorna lista de pacientes atualizados com statusSeguranca derivado de logs e IA.
+ * Retorna lista de pacientes atualizados com statusSeguranca derivado dos logs em tempo real.
  */
 export function enriquecerPacientesComStatus<T extends Paciente>(
   pacientes: T[],

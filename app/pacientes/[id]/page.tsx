@@ -137,9 +137,14 @@ export default function ProntuarioDigitalPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Exclusão de log individual (Restrito a Admin)
+  const [deleteLogDialogOpen, setDeleteLogDialogOpen] = useState(false);
+  const [logToDelete, setLogToDelete] = useState<{ id: string; resumo: string } | null>(null);
+  const [deletingLog, setDeletingLog] = useState(false);
+
   const router = useRouter();
   const params = useParams();
-  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
   const pacienteId = useMemo(() => {
     const rawId = params?.id;
     return Array.isArray(rawId) ? rawId[0] : rawId;
@@ -253,6 +258,31 @@ export default function ProntuarioDigitalPage() {
 
     return () => unsubscribe();
   }, [pacienteId, instituicaoId, router, loadingInstituicao]);
+
+  const handleInitiateDeleteLog = (logId: string, resumo: string) => {
+    if (role !== "Admin") {
+      alert("Apenas Administradores podem excluir registros do histórico.");
+      return;
+    }
+    setLogToDelete({ id: logId, resumo });
+    setDeleteLogDialogOpen(true);
+  };
+
+  const handleConfirmDeleteLog = async () => {
+    if (!logToDelete) return;
+    setDeletingLog(true);
+
+    try {
+      await deleteDoc(doc(db, "LogsRotina", logToDelete.id));
+      setLogs((prev) => prev.filter((l) => l.id !== logToDelete.id));
+    } catch (err) {
+      console.error("Erro ao excluir log:", err);
+    } finally {
+      setDeletingLog(false);
+      setDeleteLogDialogOpen(false);
+      setLogToDelete(null);
+    }
+  };
 
   const handleEditSubmit = async (formData: PacienteFormData) => {
     setEditLoading(true);
@@ -619,8 +649,19 @@ export default function ProntuarioDigitalPage() {
                                             {log.observacao ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacao}</p> : null}
                                           </div>
 
-                                          <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-500 shadow-sm border border-slate-100 transition-colors group-hover:bg-blue-50 group-hover:text-blue-700 group-hover:border-blue-100">
-                                            {dataExibida}
+                                          <div className="flex items-center gap-3">
+                                            <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-500 shadow-sm border border-slate-100 transition-colors group-hover:bg-blue-50 group-hover:text-blue-700 group-hover:border-blue-100">
+                                              {dataExibida}
+                                            </div>
+                                            {role === "Admin" && (
+                                              <button
+                                                onClick={() => handleInitiateDeleteLog(log.id, String(tituloPrincipal))}
+                                                className="p-2 text-slate-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition-colors"
+                                                title="Excluir Registro (Exclusivo Admin)"
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
                                       </article>
@@ -669,6 +710,24 @@ export default function ProntuarioDigitalPage() {
         isLoading={deleteLoading}
         onConfirm={handleDeletePaciente}
         onCancel={() => setDeleteConfirmOpen(false)}
+      />
+      <ConfirmDialog
+        isOpen={deleteLogDialogOpen}
+        title="Excluir Registro de Rotina"
+        description={
+          logToDelete
+            ? `Tem certeza que deseja apagar o registro "${logToDelete.resumo}" do histórico de ${paciente?.nome}? Esta ação removerá o dado permanentemente do banco.`
+            : undefined
+        }
+        variant="danger"
+        confirmText="Sim, Excluir Registro"
+        cancelText="Cancelar"
+        isLoading={deletingLog}
+        onConfirm={handleConfirmDeleteLog}
+        onCancel={() => {
+          setDeleteLogDialogOpen(false);
+          setLogToDelete(null);
+        }}
       />
     </DashboardLayout>
   );
