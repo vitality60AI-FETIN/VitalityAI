@@ -1,23 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
   History,
-  LogOut,
   Sparkles,
   StickyNote,
   Waves,
+  Search,
+  Check,
+  Clock,
+  Radio,
 } from "lucide-react";
+import DashboardLayout from "../components/DashboardLayout";
 import { auth, db } from "../../lib/firebase";
 import { useInstitucaoId } from "../../lib/hooks";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  addDoc,
+  collection,
+  query,
+  serverTimestamp,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 import ActivitySection from "../components/ActivitySection";
 import { ACTIVITY_TYPES, ActivityType, useAllActivityTypes } from "../../lib/activityTypes";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
+import { enriquecerPacientesComStatus } from "../../lib/statusSeguranca";
 
 interface Paciente {
   id: string;
@@ -25,12 +38,6 @@ interface Paciente {
   idade: string;
   statusSeguranca: string;
 }
-
-type FeedbackState = {
-  pacienteId: string;
-  tipoRotina: ActivityType;
-  valor: string;
-} | null;
 
 type ActivityDraft = {
   status: string;
@@ -73,19 +80,10 @@ const formatarDataParaInput = (data: Date = new Date()) => {
   return new Date(data.getTime() - ajusteFuso).toISOString().slice(0, 10);
 };
 
-const formatarDataHumana = (valor: string) => {
-  const data = new Date(`${valor}T12:00:00`);
-  return data.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
-
 export default function LogRotinaPage() {
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState("Cuidador");
-  const [pacientes, setPacientes] = useState<Paciente[]>([]);
+  const [rawPacientes, setRawPacientes] = useState<Paciente[]>([]);
+  const [logs, setLogs] = useState<NormalizedLogRecord[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [drafts, setDrafts] = useState<Record<string, LogDraft>>({});
@@ -94,68 +92,86 @@ export default function LogRotinaPage() {
   const [salvandoTurno, setSalvandoTurno] = useState(false);
 
   const router = useRouter();
-  const pathname = usePathname();
-  const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
+  const allActivityTypes = useAllActivityTypes();
 
+  // Escutar Pacientes e LogsRotina em TEMPO REAL (onSnapshot)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
 
-      setUserName(user.email?.split("@")[0] || "Cuidador");
-      
-      // Ainda carregando instituicaoId
-      if (loadingInstituicao) {
-        return;
-      }
-
-      // Novo usuário que ainda não completou onboarding
+      if (loadingInstituicao) return;
       if (!instituicaoId) {
         router.push("/onboarding");
         return;
       }
 
-      try {
-        // Mostrar pacientes da instituição (não apenas os do cuidador)
-        const q = query(
-          collection(db, "Pacientes"),
-          where("instituicaoId", "==", instituicaoId)
-        );
-        const querySnapshot = await getDocs(q);
-        const listaPacientes: Paciente[] = [];
+      // 1. Listener em Tempo Real para Pacientes da instituição
+      const qPacientes = query(
+        collection(db, "Pacientes"),
+        where("instituicaoId", "==", instituicaoId)
+      );
+      const unsubPacientes = onSnapshot(
+        qPacientes,
+        (snap) => {
+          const lista: Paciente[] = [];
+          snap.forEach((doc) => {
+            lista.push({ id: doc.id, ...doc.data() } as Paciente);
+          });
+          setRawPacientes(lista);
+          setLoading(false);
+        },
+        (err) => {
+          console.error("Erro realtime pacientes:", err);
+          setLoading(false);
+        }
+      );
 
-        querySnapshot.forEach((doc) => {
-          listaPacientes.push({ id: doc.id, ...doc.data() } as Paciente);
-        });
+      // 2. Listener em Tempo Real para LogsRotina da instituição
+      const qLogs = query(
+        collection(db, "LogsRotina"),
+        where("instituicaoId", "==", instituicaoId)
+      );
+      const unsubLogs = onSnapshot(
+        qLogs,
+        (snap) => {
+          const lista = normalizeLogRecords(
+            snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          );
+          setLogs(lista);
+        },
+        (err) => {
+          console.error("Erro realtime logs:", err);
+        }
+      );
 
-        setPacientes(listaPacientes);
-      } catch (error) {
-        console.error("Erro ao buscar pacientes:", error);
-        setToast({ message: "Não foi possível carregar os residentes.", variant: "error" });
-      } finally {
-        setLoading(false);
-      }
+      (unsubscribeAuth as unknown as Record<string, () => void>)._unsubPacientes = unsubPacientes;
+      (unsubscribeAuth as unknown as Record<string, () => void>)._unsubLogs = unsubLogs;
     });
 
-    return () => unsubscribe();
+    return () => {
+      try {
+        const authUnsub = unsubscribeAuth as unknown as Record<string, (() => void) | undefined>;
+        if (typeof unsubscribeAuth === "function") unsubscribeAuth();
+        if (authUnsub._unsubPacientes) authUnsub._unsubPacientes();
+        if (authUnsub._unsubLogs) authUnsub._unsubLogs();
+      } catch (e) {}
+    };
   }, [router, instituicaoId, loadingInstituicao]);
+
+  // Derivar pacientes com statusSeguranca dinâmico baseado em logs em tempo real
+  const pacientes = useMemo(() => {
+    return enriquecerPacientesComStatus(rawPacientes, logs);
+  }, [rawPacientes, logs]);
 
   useEffect(() => {
     if (!toast) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setToast(null);
-    }, 2200);
-
+    const timeoutId = window.setTimeout(() => setToast(null), 2500);
     return () => window.clearTimeout(timeoutId);
   }, [toast]);
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/");
-  };
 
   const irParaCadastroPaciente = () => {
     router.push("/pacientes/novo");
@@ -165,7 +181,12 @@ export default function LogRotinaPage() {
     return drafts[pacienteId] ?? criarDraftVazio();
   };
 
-  const atualizarDraft = (pacienteId: string, tipo: ActivityType, campo: "status" | "detail", valor: string) => {
+  const atualizarDraft = (
+    pacienteId: string,
+    tipo: ActivityType,
+    campo: "status" | "detail",
+    valor: string
+  ) => {
     setDrafts((current) => ({
       ...current,
       [pacienteId]: {
@@ -207,12 +228,10 @@ export default function LogRotinaPage() {
 
   const abrirConclusaoTurno = (paciente: Paciente) => {
     const resumo = montarConclusaoTurno(paciente);
-
     if (!resumo) {
       setToast({ message: "Preencha ao menos uma atividade antes de concluir.", variant: "error" });
       return;
     }
-
     setConclusaoTurno(resumo);
   };
 
@@ -221,19 +240,16 @@ export default function LogRotinaPage() {
 
     try {
       const usuarioAtual = auth.currentUser;
-
       if (!usuarioAtual) {
         router.push("/login");
         return;
       }
-
       if (!instituicaoId) {
         setToast({ message: "Instituição não encontrada.", variant: "error" });
         return;
       }
 
       setSalvandoTurno(true);
-
       const draft = obterDraft(conclusaoTurno.pacienteId);
 
       for (const atividade of conclusaoTurno.atividades) {
@@ -255,15 +271,20 @@ export default function LogRotinaPage() {
         });
       }
 
-      setDrafts((current) => ({
-        ...current,
+      // Limpar rascunho do paciente recém-salvo
+      setDrafts((prev) => ({
+        ...prev,
         [conclusaoTurno.pacienteId]: criarDraftVazio(),
       }));
-      setToast({ message: `Logs de ${conclusaoTurno.pacienteNome} salvos com sucesso.`, variant: "success" });
+
+      setToast({
+        message: `Turno de ${conclusaoTurno.pacienteNome} concluído e salvo com sucesso!`,
+        variant: "success",
+      });
       setConclusaoTurno(null);
     } catch (error) {
       console.error("Erro ao salvar turno:", error);
-      setToast({ message: "Falha ao salvar os logs do turno.", variant: "error" });
+      setToast({ message: "Erro ao salvar os logs do turno.", variant: "error" });
     } finally {
       setSalvandoTurno(false);
     }
@@ -272,184 +293,211 @@ export default function LogRotinaPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
+          <p className="text-sm font-semibold text-slate-500">Carregando Logs de Rotina Ao Vivo...</p>
+        </div>
       </div>
     );
   }
 
-  const menuItems = [
-    { name: "Painel Geral", path: "/dashboard", icon: "📊" },
-    { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
-    { name: "Log de Rotina", path: "/rotina", icon: "📝" },
-    { name: "Insights IA", path: "/insights", icon: "🧠" },
-    ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: "👥" }] : []),
-  ];
-
-  const allActivityTypes = useAllActivityTypes();
+  const hojeStr = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
-      <aside className="hidden w-64 flex-col justify-between border-r border-slate-200 bg-white shadow-sm z-10 md:flex">
-        <div>
-          <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 font-black text-white shadow-md shadow-blue-200">
-              V
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-800">Vitality AI</span>
-          </div>
-
-          <nav className="space-y-2 p-4">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.path;
-
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => router.push(item.path)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                    isActive ? "bg-blue-50 font-bold text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  {item.name}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="border-t border-slate-100 p-4">
-          <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold uppercase text-blue-700">
-              {userName.charAt(0)}
-            </div>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate text-sm font-bold text-slate-800">{userName}</p>
-              <p className="text-xs text-slate-400">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+    <DashboardLayout>
+      {/* Toast Notification */}
+      {toast ? (
+        <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div
+            className={`flex items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-2xl backdrop-blur-md ${
+              toast.variant === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-emerald-100 font-bold"
+                : "border-red-200 bg-red-50 text-red-800 shadow-red-100 font-bold"
+            }`}
           >
-            <LogOut className="h-4 w-4" />
-            Encerrar Sessão
-          </button>
+            {toast.variant === "success" ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+            )}
+            <p className="text-sm">{toast.message}</p>
+          </div>
         </div>
-      </aside>
+      ) : null}
 
-      <div className="relative flex-1 flex-col overflow-y-auto">
-        {toast ? (
-          <div className="pointer-events-none fixed right-4 top-4 z-50">
-            <div
-              className={`flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-lg backdrop-blur-md ${
-                toast.variant === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-emerald-100"
-                  : "border-red-200 bg-red-50 text-red-800 shadow-red-100"
-              }`}
-            >
-              {toast.variant === "success" ? <CheckCircle2 className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
-              <p className="text-sm font-semibold">{toast.message}</p>
+      <main className="mx-auto w-full max-w-7xl px-4 md:px-6 py-6 md:py-10">
+        {/* Header da Tela */}
+        <header className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-800">
+                <Radio className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+                Atualizações Ao Vivo (Realtime)
+              </span>
             </div>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
+              Log de Rotina Assistencial
+            </h1>
+            <p className="mt-2 text-slate-500 text-base max-w-2xl">
+              Marque as atividades prestadas durante o turno. As informações atualizam instantaneamente e alimentam o status do residente.
+            </p>
           </div>
-        ) : null}
 
-        <nav className="sticky top-0 z-40 flex items-center justify-end border-b border-slate-200/50 bg-white/75 px-6 py-4 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
+          <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-5 text-sm text-blue-900 shadow-sm min-w-[280px]">
+            <div className="flex items-center gap-2 font-black">
+              <History className="h-4 w-4 text-blue-600" />
+              Rascunho Inteligente
+            </div>
+            <p className="mt-1 text-xs text-blue-700 leading-relaxed">
+              Os itens marcados permanecem gravados em rascunho. Clique em <strong>"Concluir Turno"</strong> para registrar a validação assistencial.
+            </p>
+          </div>
+        </header>
+
+        {pacientes.length === 0 ? (
+          <div className="rounded-[2.5rem] border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+              <Waves className="h-7 w-7" />
+            </div>
+            <h2 className="mt-4 text-2xl font-black text-slate-900">Nenhum residente cadastrado</h2>
+            <p className="mt-2 text-slate-500">Cadastre o primeiro residente para liberar o registro de rotina.</p>
             <button
               onClick={irParaCadastroPaciente}
-              className="hidden rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-blue-200 transition-all hover:bg-blue-700 sm:block"
+              className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20"
             >
-              + Novo Paciente
+              + Cadastrar Residente
             </button>
           </div>
-        </nav>
-
-        <main className="mx-auto w-full max-w-7xl px-6 py-10">
-          <header className="mb-10 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                <Sparkles className="h-3.5 w-3.5" />
-                Registro Assistencial
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">Log de Rotina</h1>
-              <p className="mt-2 max-w-2xl text-lg text-slate-500">
-                Preencha as atividades ao longo do turno e, ao final, revise tudo antes de salvar. Nada vai para o prontuário sem sua confirmação.
-              </p>
+        ) : (
+          <div className="space-y-6">
+            {/* Campo de Busca de Residentes */}
+            <div className="relative flex items-center rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm focus-within:border-blue-500 focus-within:shadow-md transition-all">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
+                <Search className="h-5 w-5" />
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar residente pelo nome..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-transparent px-4 py-3 text-base font-bold text-slate-800 placeholder-slate-400 outline-none"
+              />
             </div>
 
-            <div className="rounded-3xl border border-blue-100 bg-blue-50/70 px-5 py-4 text-sm text-blue-800 shadow-sm">
-              <div className="flex items-center gap-2 font-black">
-                <History className="h-4 w-4" />
-                Revisão final obrigatória
-              </div>
-              <p className="mt-2 max-w-sm leading-6 text-blue-700">
-                Você pode marcar atividades, adicionar detalhes e só depois concluir o turno para salvar os logs do paciente.
-              </p>
-            </div>
-
-            <button
-              onClick={irParaCadastroPaciente}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-200 sm:hidden"
-            >
-              +
-            </button>
-          </header>
-
-          {pacientes.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                <Waves className="h-7 w-7" />
-              </div>
-              <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Nenhum residente disponível</h2>
-              <p className="mt-2 text-slate-500">Cadastre um paciente para começar a registrar os logs de rotina.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="mb-2">
-                <input
-                  placeholder="Buscar residente..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none"
-                />
-              </div>
-              {pacientes
-                .filter((p) => p.nome.toLowerCase().includes(searchTerm.toLowerCase()))
-                .map((paciente) => {
+            {/* Lista de Cards dos Residentes */}
+            {pacientes
+              .filter((p) => p.nome.toLowerCase().includes(searchTerm.toLowerCase()))
+              .map((paciente) => {
                 const draft = obterDraft(paciente.id);
                 const isExpanded = Boolean(expanded[paciente.id]);
-                const atividadesPreenchidas = (Object.keys(ACTIVITY_TYPES) as ActivityType[]).filter(
+
+                // Identificar atividades já gravadas HOJE no banco
+                const logsHojePaciente = logs.filter((l) => {
+                  if (l.pacienteId !== paciente.id) return false;
+                  const dataL = l.dataTurno || (l.dataHora?.toDate ? l.dataHora.toDate().toISOString().slice(0, 10) : "");
+                  return dataL === hojeStr;
+                });
+
+                // Atividades marcadas no rascunho atual
+                const atividadesPreenchidasDraft = (Object.keys(ACTIVITY_TYPES) as ActivityType[]).filter(
                   (tipo) => Boolean(draft.atividades[tipo].status)
                 );
-                const resumoLabel = atividadesPreenchidas.length
-                  ? `${atividadesPreenchidas.length} atividade(s) pronta(s) para concluir`
-                  : "Ainda sem atividades marcadas neste turno";
+
+                const totalRegistradosBanco = logsHojePaciente.length;
+                const totalRascunhoAtual = atividadesPreenchidasDraft.length;
 
                 return (
-                  <div key={paciente.id} className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-100">
-                    <div className="flex items-center justify-between gap-4 p-4 cursor-pointer" onClick={() => setExpanded((s) => ({ ...s, [paciente.id]: !s[paciente.id] }))}>
+                  <div
+                    key={paciente.id}
+                    className={`group/patient overflow-hidden rounded-[2.5rem] border bg-white shadow-sm transition-all duration-300 ${
+                      isExpanded
+                        ? "border-blue-400 ring-2 ring-blue-100 shadow-xl"
+                        : "border-slate-200 hover:border-blue-300 hover:shadow-md"
+                    }`}
+                  >
+                    {/* Top Header Card Residente */}
+                    <div
+                      className="flex items-center justify-between gap-4 p-6 cursor-pointer hover:bg-slate-50/60 transition-colors"
+                      onClick={() => setExpanded((s) => ({ ...s, [paciente.id]: !s[paciente.id] }))}
+                    >
                       <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 text-2xl font-black text-blue-700">{paciente.nome.charAt(0)}</div>
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 font-black text-xl shadow-sm">
+                          {paciente.nome.charAt(0)}
+                        </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-900 truncate">{paciente.nome} • {paciente.idade} anos</p>
-                          <p className="mt-1 text-xs text-slate-500 truncate">Clique para expandir e registrar atividades</p>
+                          <h3 className="text-lg font-black text-slate-900 tracking-tight truncate group-hover/patient:text-blue-600 transition-colors">
+                            {paciente.nome}{" "}
+                            <span className="text-sm font-semibold text-slate-400 ml-1">
+                              • {paciente.idade} anos
+                            </span>
+                          </h3>
+                          <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                            {isExpanded ? "Clique para recolher" : "Clique para expandir e registrar rotina"}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className={`rounded-full px-3 py-1 text-xs font-bold ${paciente.statusSeguranca === "Verde" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-amber-50 text-amber-700 border border-amber-100"}`}>{paciente.statusSeguranca}</div>
-                        <button onClick={(e) => { e.stopPropagation(); router.push(`/pacientes/${paciente.id}`); }} className="rounded-full bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600">Abrir</button>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-wider ${
+                            paciente.statusSeguranca === "Verde"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : paciente.statusSeguranca === "Amarelo"
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-rose-50 text-rose-700 border-rose-200"
+                          }`}
+                        >
+                          {paciente.statusSeguranca === "Verde"
+                            ? "Estável"
+                            : paciente.statusSeguranca === "Amarelo"
+                            ? "Atenção"
+                            : "Alerta Crítico"}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/pacientes/${paciente.id}`);
+                          }}
+                          className="rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition-all"
+                        >
+                          Prontuário
+                        </button>
                       </div>
                     </div>
 
-                    <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3 text-sm text-slate-600">
-                      <span className="font-bold text-slate-900">Rascunho do turno:</span> {resumoLabel}
+                    {/* BANNER DINÂMICO AO VIVO: RASCUNHO & HISTÓRICO DE HOJE */}
+                    <div className="border-t border-slate-100 bg-slate-50/70 px-6 py-3.5 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-blue-600 animate-ping" />
+                          Rotina de Hoje:
+                        </span>
+
+                        {totalRegistradosBanco > 0 ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 font-bold text-emerald-800 shadow-sm">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                            {totalRegistradosBanco} registro(s) salvos no banco
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-medium">Nenhuma atividade salva hoje</span>
+                        )}
+
+                        {totalRascunhoAtual > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 font-extrabold text-amber-900 border border-amber-200 shadow-sm">
+                            + {totalRascunhoAtual} item(ns) prontos no rascunho
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="font-bold text-slate-400 flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5 text-slate-400" /> Realtime
+                      </span>
                     </div>
 
-                    {isExpanded ? (
+                    {/* Conteúdo Expandido do Card do Residente */}
+                    {isExpanded && (
                       <>
-                        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-6 lg:grid-cols-2 xl:grid-cols-3">
+                        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/50 p-6 lg:grid-cols-2 xl:grid-cols-3">
                           {allActivityTypes.map((activityType) => {
                             const tipo = activityType.id as ActivityType;
                             const selectedStatus = draft.atividades[tipo].status;
@@ -459,25 +507,29 @@ export default function LogRotinaPage() {
                                 key={tipo}
                                 tipo={tipo}
                                 selectedStatus={selectedStatus}
-                                onOptionClick={(status: string) => atualizarDraft(paciente.id, tipo, "status", status)}
+                                onOptionClick={(status: string) =>
+                                  atualizarDraft(paciente.id, tipo, "status", status)
+                                }
                                 detailValue={draft.atividades[tipo].detail}
-                                onDetailChange={(value: string) => atualizarDraft(paciente.id, tipo, "detail", value)}
+                                onDetailChange={(value: string) =>
+                                  atualizarDraft(paciente.id, tipo, "detail", value)
+                                }
                               />
                             );
                           })}
                         </div>
 
-                        <div className="border-t border-slate-100 bg-white px-6 pb-6 pt-5">
-                          <div className="mb-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                            <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-                              <StickyNote className="h-3.5 w-3.5" />
-                              Observação do turno
+                        <div className="border-t border-slate-100 bg-white p-6 md:p-8">
+                          <div className="mb-6 rounded-[2rem] border border-slate-100 bg-slate-50/70 p-6">
+                            <label className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                              <StickyNote className="h-4 w-4 text-blue-600" />
+                              Observação Geral do Turno (Opcional)
                             </label>
                             <textarea
                               value={draft.observacaoTurno}
                               onChange={(e) =>
-                                setDrafts((current) => ({
-                                  ...current,
+                                setDrafts((prev) => ({
+                                  ...prev,
                                   [paciente.id]: {
                                     ...obterDraft(paciente.id),
                                     observacaoTurno: e.target.value,
@@ -485,100 +537,69 @@ export default function LogRotinaPage() {
                                 }))
                               }
                               rows={2}
-                              placeholder="Ex: residente mais sonolento, precisou de ajuda extra, houve visita da família..."
-                              className="w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-blue-500"
+                              placeholder="Observação geral para a passagem de plantão..."
+                              className="w-full rounded-2xl border-2 border-slate-200 bg-white p-4 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-blue-500 transition-all resize-none"
                             />
-                            <p className="mt-2 text-xs text-slate-400">
-                              Essa observação será anexada aos registros quando você concluir o turno.
-                            </p>
                           </div>
 
-                          <button
-                            onClick={() => abrirConclusaoTurno(paciente)}
-                            className="w-full rounded-3xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition-all hover:bg-blue-600"
-                          >
-                            Concluir turno deste paciente
-                          </button>
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <p className="text-xs font-semibold text-slate-500">
+                              {totalRascunhoAtual > 0
+                                ? `Pronto para registrar ${totalRascunhoAtual} atividade(s) para ${paciente.nome}.`
+                                : "Selecione ao menos uma atividade acima para liberar a conclusão."}
+                            </p>
+                            <button
+                              onClick={() => abrirConclusaoTurno(paciente)}
+                              disabled={totalRascunhoAtual === 0 && !draft.observacaoTurno.trim()}
+                              className="w-full sm:w-auto rounded-2xl bg-slate-900 hover:bg-blue-600 text-white px-8 py-4 font-black text-sm shadow-xl transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed hover:-translate-y-0.5 active:scale-95"
+                            >
+                              Concluir Turno de {paciente.nome.split(" ")[0]}
+                            </button>
+                          </div>
                         </div>
                       </>
-                    ) : null}
+                    )}
                   </div>
                 );
               })}
-            </div>
-          )}
-        </main>
+          </div>
+        )}
+      </main>
 
+      {/* DIÁLOGO DE CONFIRMAÇÃO DE CONCLUSÃO DE TURNO */}
+      {conclusaoTurno && (
         <ConfirmDialog
           isOpen={Boolean(conclusaoTurno)}
-          title={conclusaoTurno ? `Concluir turno de ${conclusaoTurno.pacienteNome}?` : "Concluir turno"}
-          description={conclusaoTurno ? `Revisão dos registros do dia ${formatarDataHumana(conclusaoTurno.dataTurno)}. Nenhum log será salvo sem sua confirmação.` : undefined}
-          variant="warning"
-          confirmText="Salvar logs do paciente"
-          cancelText="Voltar e editar"
+          variant="info"
+          title={`Concluir Turno - ${conclusaoTurno.pacienteNome}`}
+          description="Confira abaixo os itens que serão gravados no prontuário digital deste idoso:"
+          confirmText="Salvar e Registrar Turno"
+          cancelText="Revisar Rascunho"
           isLoading={salvandoTurno}
           onConfirm={salvarConclusaoTurno}
           onCancel={() => setConclusaoTurno(null)}
         >
-          {conclusaoTurno ? (
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Paciente</p>
-                <p className="mt-2 text-base font-bold text-slate-900">{conclusaoTurno.pacienteNome}</p>
-                <p className="mt-1 text-sm text-slate-500">Data de referência: {formatarDataHumana(conclusaoTurno.dataTurno)}</p>
-              </div>
-
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
-                <label className="block text-xs font-black uppercase tracking-[0.2em] text-amber-800">
-                  Alterar data do registro
-                </label>
-                <input
-                  type="date"
-                  value={conclusaoTurno.dataTurno}
-                  onChange={(e) =>
-                    setConclusaoTurno((current) =>
-                      current ? { ...current, dataTurno: e.target.value } : current
-                    )
-                  }
-                  className="mt-3 w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm outline-none focus:border-amber-400"
-                />
-                <p className="mt-2 text-xs text-amber-800/70">
-                  Use essa data quando estiver lançando um turno de um dia anterior.
-                </p>
-              </div>
-
-              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                {conclusaoTurno.atividades.length > 0 ? (
-                  conclusaoTurno.atividades.map((atividade) => (
-                    <div key={atividade.tipo} className="rounded-2xl border border-slate-200 bg-white p-3">
-                      <p className="text-sm font-black text-slate-900">{atividade.label}</p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        <span className="font-semibold">Status:</span> {atividade.status}
-                      </p>
-                      {atividade.detail ? (
-                        <p className="mt-1 text-sm text-slate-500">
-                          <span className="font-semibold">Detalhe:</span> {atividade.detail}
-                        </p>
-                      ) : null}
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                    Nenhuma atividade marcada. Apenas a observação do turno está preenchida.
-                  </div>
-                )}
-              </div>
-
-              {conclusaoTurno.observacaoTurno ? (
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">Observação do turno</p>
-                  <p className="mt-2 text-sm leading-6 text-blue-900">{conclusaoTurno.observacaoTurno}</p>
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+            {conclusaoTurno.atividades.map((item) => (
+              <div
+                key={item.tipo}
+                className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-xs border border-slate-100"
+              >
+                <div>
+                  <span className="font-extrabold text-slate-900">{item.label}: </span>
+                  <span className="font-bold text-blue-700">{item.status}</span>
+                  {item.detail && <p className="text-slate-500 mt-0.5">Detalhe: {item.detail}</p>}
                 </div>
-              ) : null}
-            </div>
-          ) : null}
+              </div>
+            ))}
+            {conclusaoTurno.observacaoTurno && (
+              <div className="rounded-2xl bg-blue-50/70 p-3 text-xs text-blue-900 border border-blue-100">
+                <strong>Obs. Geral:</strong> {conclusaoTurno.observacaoTurno}
+              </div>
+            )}
+          </div>
         </ConfirmDialog>
-      </div>
-    </div>
+      )}
+    </DashboardLayout>
   );
 }

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter, usePathname } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Activity, AlertTriangle, CheckCircle2, HeartPulse, Phone, User, Users, LogOut, Droplets, History, Pill, UtensilsCrossed, Edit2, Trash2 } from "lucide-react";
+import DashboardLayout from "../../components/DashboardLayout";
 import { auth, db } from "../../../lib/firebase";
 import { useInstitucaoId } from "../../../lib/hooks";
 import { ACTIVITY_TYPES, ActivityType } from "../../../lib/activityTypes";
 import { normalizeLogRecords } from "../../../lib/logNormalizer";
+import { calcularStatusSeguranca } from "../../../lib/statusSeguranca";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, query, where, updateDoc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore";
 
@@ -135,10 +137,14 @@ export default function ProntuarioDigitalPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Exclusão de log individual (Restrito a Admin)
+  const [deleteLogDialogOpen, setDeleteLogDialogOpen] = useState(false);
+  const [logToDelete, setLogToDelete] = useState<{ id: string; resumo: string } | null>(null);
+  const [deletingLog, setDeletingLog] = useState(false);
+
   const router = useRouter();
-  const pathname = usePathname();
   const params = useParams();
-  const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
   const pacienteId = useMemo(() => {
     const rawId = params?.id;
     return Array.isArray(rawId) ? rawId[0] : rawId;
@@ -152,9 +158,6 @@ export default function ProntuarioDigitalPage() {
         return;
       }
 
-      setUserName(user.email?.split("@")[0] || "Cuidador");
-
-      // Ainda carregando instituicaoId
       if (loadingInstituicao) {
         return;
       }
@@ -237,6 +240,13 @@ export default function ProntuarioDigitalPage() {
 
           setLogs(listaLogs);
           setLogsPage(1);
+
+          // Derivar status de segurança vivo
+          const statusCalculado = calcularStatusSeguranca(
+            { id: pacienteId, nome: pacienteData.nome, statusSeguranca: pacienteData.statusSeguranca },
+            listaLogs
+          );
+          setPaciente({ ...pacienteData, statusSeguranca: statusCalculado });
         }
       } catch (fetchError) {
         console.error("Erro ao buscar paciente:", fetchError);
@@ -249,9 +259,29 @@ export default function ProntuarioDigitalPage() {
     return () => unsubscribe();
   }, [pacienteId, instituicaoId, router, loadingInstituicao]);
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/");
+  const handleInitiateDeleteLog = (logId: string, resumo: string) => {
+    if (role !== "Admin") {
+      alert("Apenas Administradores podem excluir registros do histórico.");
+      return;
+    }
+    setLogToDelete({ id: logId, resumo });
+    setDeleteLogDialogOpen(true);
+  };
+
+  const handleConfirmDeleteLog = async () => {
+    if (!logToDelete) return;
+    setDeletingLog(true);
+
+    try {
+      await deleteDoc(doc(db, "LogsRotina", logToDelete.id));
+      setLogs((prev) => prev.filter((l) => l.id !== logToDelete.id));
+    } catch (err) {
+      console.error("Erro ao excluir log:", err);
+    } finally {
+      setDeletingLog(false);
+      setDeleteLogDialogOpen(false);
+      setLogToDelete(null);
+    }
   };
 
   const handleEditSubmit = async (formData: PacienteFormData) => {
@@ -327,16 +357,6 @@ export default function ProntuarioDigitalPage() {
     }
   };
 
-  
-
-
-  const menuItems = [
-    { name: "Painel Geral", path: "/dashboard", icon: "📊" },
-    { name: "Prontuários", path: "/pacientes", icon: "🗂️" },
-    { name: "Log de Rotina", path: "/rotina", icon: "📝" },
-    { name: "Insights IA", path: "/insights", icon: "🧠" },
-  ];
-
   const isLoadingOrError = loading || Boolean(error && !paciente);
 
   const formatarData = (valor?: { toDate?: () => Date }) => {
@@ -386,67 +406,16 @@ export default function ProntuarioDigitalPage() {
   const diasOrdenados = Object.keys(gruposDeDia);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
-      <aside className="hidden w-64 flex-col justify-between border-r border-slate-200 bg-white shadow-sm md:flex z-10">
-        <div>
-          <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 font-black text-white shadow-md shadow-blue-200">
-              V
-            </div>
-            <span className="text-xl font-bold tracking-tight text-slate-800">Vitality AI</span>
-          </div>
-
-          <nav className="space-y-2 p-4">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
-
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => router.push(item.path)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                    isActive ? "bg-blue-50 font-bold text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  {item.name}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="border-t border-slate-100 p-4">
-          <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold uppercase text-blue-700">
-              {userName.charAt(0)}
-            </div>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate text-sm font-bold text-slate-800">{userName}</p>
-              <p className="text-xs text-slate-400">Cuidador</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-          >
-            <LogOut className="h-4 w-4" />
-            Encerrar Sessão
-          </button>
-        </div>
-      </aside>
-
-      <div className="relative flex-1 flex-col overflow-y-auto">
-        <nav className="sticky top-0 z-40 flex items-center justify-end border-b border-slate-200/50 bg-white/75 px-6 py-4 backdrop-blur-xl">
+    <DashboardLayout>
+        <div className="mb-4">
           <button
             onClick={() => router.push("/dashboard")}
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-md shadow-slate-200 transition-all hover:bg-blue-600"
+            className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-200"
           >
-            ← Voltar ao Painel
+            ← Voltar
           </button>
-        </nav>
-
-        <main className="mx-auto w-full max-w-7xl px-6 py-10">
+        </div>
+        <main className="mx-auto w-full max-w-7xl">
           <header className="relative mb-10 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
@@ -465,7 +434,7 @@ export default function ProntuarioDigitalPage() {
               {paciente && !editMode ? (
                 <button
                   onClick={() => setShowCadastroInfo((current) => !current)}
-                  className="group flex w-40 shrink-0 items-center gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-3 text-left shadow-sm shadow-slate-100 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                  className="group flex w-48 shrink-0 items-center gap-4 rounded-[2rem] border border-slate-200/80 bg-white p-3 text-left shadow-sm shadow-slate-200/30 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5"
                 >
                   <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-400">
                     {paciente.fotoUrl ? (
@@ -490,8 +459,8 @@ export default function ProntuarioDigitalPage() {
             </div>
 
             {paciente && showCadastroInfo && !editMode ? (
-              <div className="absolute right-0 top-20 z-20 w-full max-w-md rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-200/70">
-                <div className="flex items-start gap-3">
+              <div className="absolute right-0 top-20 z-20 w-full max-w-md rounded-[2rem] border border-slate-200/80 bg-white/95 p-6 shadow-2xl shadow-blue-900/10 backdrop-blur-xl animate-in slide-in-from-top-4 duration-300">
+                <div className="flex items-start gap-4">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-400">
                     {paciente.fotoUrl ? (
                       <img
@@ -542,16 +511,16 @@ export default function ProntuarioDigitalPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-2">
+                <div className="mt-6 flex gap-3">
                   <button
                     onClick={() => setEditMode(true)}
-                    className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                    className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg"
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => setDeleteConfirmOpen(true)}
-                    className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700"
+                    className="flex-1 rounded-2xl bg-red-50 text-red-600 px-4 py-3 text-sm font-bold border border-red-100 transition-all hover:-translate-y-0.5 hover:bg-red-100"
                   >
                     Deletar
                   </button>
@@ -565,8 +534,8 @@ export default function ProntuarioDigitalPage() {
               <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-blue-600" />
             </div>
           ) : editMode && paciente ? (
-            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-100/50 p-8 md:p-12 border border-slate-100">
-              <div className="mb-8 flex items-center justify-between">
+            <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 p-8 md:p-12 border border-slate-100/80 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-2">
                     Editar Prontuário
@@ -577,7 +546,7 @@ export default function ProntuarioDigitalPage() {
                 </div>
                 <button
                   onClick={() => setEditMode(false)}
-                  className="rounded-xl px-4 py-2 bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors"
+                  className="rounded-2xl px-6 py-3 bg-slate-50 text-slate-600 font-bold hover:bg-slate-100 hover:text-slate-900 transition-colors border border-slate-200/60 shadow-sm"
                 >
                   Cancelar
                 </button>
@@ -667,8 +636,8 @@ export default function ProntuarioDigitalPage() {
                                     const dataExibida = log.dataTurno ? formatarDataTurno(log.dataTurno) : formatarData(log.dataHora);
 
                                     return (
-                                      <article key={log.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                      <article key={log.id} className="group rounded-[2rem] border border-slate-200/60 bg-white p-5 shadow-sm shadow-slate-200/30 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5">
+                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                           <div>
                                             <div className={`flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] ${presentation.accent}`}>
                                               <IconComponent className="h-4 w-4" />
@@ -680,8 +649,19 @@ export default function ProntuarioDigitalPage() {
                                             {log.observacao ? <p className="mt-1 text-sm text-slate-500">Observação: {log.observacao}</p> : null}
                                           </div>
 
-                                          <div className="rounded-2xl bg-white px-3 py-2 text-xs font-bold text-slate-500 shadow-sm">
-                                            {dataExibida}
+                                          <div className="flex items-center gap-3">
+                                            <div className="rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-500 shadow-sm border border-slate-100 transition-colors group-hover:bg-blue-50 group-hover:text-blue-700 group-hover:border-blue-100">
+                                              {dataExibida}
+                                            </div>
+                                            {role === "Admin" && (
+                                              <button
+                                                onClick={() => handleInitiateDeleteLog(log.id, String(tituloPrincipal))}
+                                                className="p-2 text-slate-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition-colors"
+                                                title="Excluir Registro (Exclusivo Admin)"
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
                                       </article>
@@ -703,7 +683,7 @@ export default function ProntuarioDigitalPage() {
                                 <button
                                   key={pageNumber}
                                   onClick={() => setLogsPage(pageNumber)}
-                                  className={`h-2.5 rounded-full transition-all ${isActive ? "w-8 bg-blue-600" : "w-2.5 bg-slate-300 hover:bg-slate-400"}`}
+                                  className={`h-3 rounded-full transition-all duration-300 ${isActive ? "w-10 bg-blue-600" : "w-3 bg-slate-200 hover:bg-slate-300"}`}
                                   aria-label={`Ir para a página ${pageNumber}`}
                                 />
                               );
@@ -720,9 +700,6 @@ export default function ProntuarioDigitalPage() {
             </div>
           ) : null}
         </main>
-      </div>
-
-      {/* Dialog de Confirmação de Delete */}
       <ConfirmDialog
         isOpen={deleteConfirmOpen}
         title="Deletar Paciente?"
@@ -734,7 +711,25 @@ export default function ProntuarioDigitalPage() {
         onConfirm={handleDeletePaciente}
         onCancel={() => setDeleteConfirmOpen(false)}
       />
-    </div>
+      <ConfirmDialog
+        isOpen={deleteLogDialogOpen}
+        title="Excluir Registro de Rotina"
+        description={
+          logToDelete
+            ? `Tem certeza que deseja apagar o registro "${logToDelete.resumo}" do histórico de ${paciente?.nome}? Esta ação removerá o dado permanentemente do banco.`
+            : undefined
+        }
+        variant="danger"
+        confirmText="Sim, Excluir Registro"
+        cancelText="Cancelar"
+        isLoading={deletingLog}
+        onConfirm={handleConfirmDeleteLog}
+        onCancel={() => {
+          setDeleteLogDialogOpen(false);
+          setLogToDelete(null);
+        }}
+      />
+    </DashboardLayout>
   );
 }
 

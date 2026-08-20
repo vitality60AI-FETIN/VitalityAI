@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { CuidadorData } from "./types";
 
 /**
  * Hook para pegar o instituicaoId do usuário logado
@@ -39,9 +40,9 @@ export function useInstitucaoId() {
           setRole(null);
           setError(null);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Erro ao carregar instituicaoId/role:", err);
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Erro desconhecido");
         setInstituicaoId(null);
         setRole(null);
       } finally {
@@ -59,7 +60,7 @@ export function useInstitucaoId() {
  * Hook para pegar dados completos do cuidador logado
  */
 export function useCuidadorData() {
-  const [cuidador, setCuidador] = useState<any>(null);
+  const [cuidador, setCuidador] = useState<CuidadorData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

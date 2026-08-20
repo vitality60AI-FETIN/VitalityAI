@@ -28,13 +28,9 @@ service cloud.firestore {
     // ──────────────────────────────────────────────
     // INSTITUIÇÕES
     // ──────────────────────────────────────────────
-    // • Qualquer autenticado pode ler (necessário durante onboarding para buscar por nome)
-    // • Qualquer autenticado pode criar (necessário para criar nova instituição no onboarding)
-    // • Apenas Admin da própria instituição pode atualizar
-    // • Exclusão bloqueada
     match /Instituicoes/{instId} {
       allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.criadoPorUid == request.auth.uid;
       allow update: if isAuthenticated() && userInstituicaoId() == instId && isAdmin();
       allow delete: if false;
     }
@@ -42,21 +38,29 @@ service cloud.firestore {
     // ──────────────────────────────────────────────
     // CUIDADORES (perfil dos usuários)
     // ──────────────────────────────────────────────
-    // • Usuário sempre pode ler/criar seu próprio documento (onboarding + hooks)
-    // • Membros da mesma instituição podem ler (página Equipe)
-    // • Apenas o próprio usuário ou Admin da mesma instituição pode atualizar (troca de role)
-    // • Exclusão bloqueada
     match /Cuidadores/{cuidadorId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == cuidadorId ||
         resource.data.instituicaoId == userInstituicaoId()
       );
 
-      allow create: if isAuthenticated() && request.auth.uid == cuidadorId;
+      allow create: if isAuthenticated() && request.auth.uid == cuidadorId && (
+        (request.resource.data.role == "Admin" && 
+         get(/databases/$(database)/documents/Instituicoes/$(request.resource.data.instituicaoId)).data.criadoPorUid == request.auth.uid) ||
+        request.resource.data.role == "Cuidador"
+      );
 
       allow update: if isAuthenticated() && (
-        request.auth.uid == cuidadorId ||
-        (resource.data.instituicaoId == userInstituicaoId() && isAdmin())
+        (
+          request.auth.uid == cuidadorId &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.instituicaoId == resource.data.instituicaoId
+        ) ||
+        (
+          resource.data.instituicaoId == userInstituicaoId() &&
+          isAdmin() &&
+          request.resource.data.instituicaoId == resource.data.instituicaoId
+        )
       );
 
       allow delete: if false;
@@ -65,8 +69,6 @@ service cloud.firestore {
     // ──────────────────────────────────────────────
     // PACIENTES (prontuários)
     // ──────────────────────────────────────────────
-    // • Leitura, atualização e exclusão: apenas cuidadores da mesma instituição
-    // • Criação: apenas se o instituicaoId do novo documento bate com o do cuidador
     match /Pacientes/{pacienteId} {
       allow read, update, delete: if isAuthenticated()
         && resource.data.instituicaoId == userInstituicaoId();
@@ -78,21 +80,23 @@ service cloud.firestore {
     // ──────────────────────────────────────────────
     // LOGS DE ROTINA
     // ──────────────────────────────────────────────
-    // • Mesma lógica de isolamento por instituição
+    // • Leitura, criação e atualização: todos da mesma instituição
+    // • EXCLUSÃO: Restrita exclusivamente a Administradores (role == "Admin")
     match /LogsRotina/{logId} {
-      allow read, update, delete: if isAuthenticated()
+      allow read, update: if isAuthenticated()
         && resource.data.instituicaoId == userInstituicaoId();
 
       allow create: if isAuthenticated()
         && request.resource.data.instituicaoId == userInstituicaoId();
+
+      allow delete: if isAuthenticated()
+        && resource.data.instituicaoId == userInstituicaoId()
+        && isAdmin();
     }
 
     // ──────────────────────────────────────────────
     // CONSENTIMENTOS LGPD (auditoria)
     // ──────────────────────────────────────────────
-    // • Criação: apenas o próprio usuário pode registrar seu consentimento
-    // • Leitura: cuidadores da mesma instituição (para auditoria)
-    // • Atualização e exclusão: bloqueados (registro imutável)
     match /ConsentimentosLGPD/{consentId} {
       allow create: if isAuthenticated()
         && request.resource.data.uid == request.auth.uid;
@@ -106,9 +110,6 @@ service cloud.firestore {
     // ──────────────────────────────────────────────
     // HISTÓRICO DE INSIGHTS IA
     // ──────────────────────────────────────────────
-    // • Leitura: cuidadores da mesma instituição
-    // • Criação: apenas se o instituicaoId bate
-    // • Atualização e exclusão: bloqueados
     match /InsightsHistory/{insightId} {
       allow read: if isAuthenticated()
         && resource.data.instituicaoId == userInstituicaoId();
@@ -120,7 +121,7 @@ service cloud.firestore {
     }
 
     // ──────────────────────────────────────────────
-    // REGRA PADRÃO: negar tudo o que não foi coberto
+    // REGRA PADRÃO
     // ──────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

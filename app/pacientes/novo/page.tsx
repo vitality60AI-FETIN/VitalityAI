@@ -6,6 +6,7 @@ import { auth, db } from "../../../lib/firebase";
 import { useInstitucaoId } from "../../../lib/hooks";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import DashboardLayout from "../../components/DashboardLayout";
 import PacienteForm, { PacienteFormData } from "../../components/PacienteForm";
 
 export default function NovoPaciente() {
@@ -66,15 +67,14 @@ export default function NovoPaciente() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-12">
-      <div className="max-w-4xl mx-auto">
-        
+    <DashboardLayout>
+      <div className="p-6 md:p-12 max-w-4xl mx-auto">
         {/* Cabeçalho */}
         <button 
           onClick={() => router.back()}
           className="flex items-center gap-2 text-slate-400 hover:text-blue-600 font-bold mb-8 transition-colors group"
         >
-          <span className="group-hover:-translate-x-1 transition-transform">←</span> Voltar ao Painel
+          <span className="group-hover:-translate-x-1 transition-transform">←</span> Voltar
         </button>
 
         <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-100/50 p-8 md:p-12 border border-slate-100">
@@ -91,6 +91,6 @@ export default function NovoPaciente() {
           />
         </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
