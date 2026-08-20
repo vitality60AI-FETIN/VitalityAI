@@ -6,6 +6,33 @@ import { checkRateLimit } from '@/lib/rateLimit';
 const RATE_LIMIT_MAX_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
+// ─── CASCATA DE MODELOS ───
+// Ordem de prioridade: tenta o primeiro, se falhar (429/503/404) tenta o próximo
+const MODEL_CASCADE = [
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3-flash',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+];
+
+// Erros que ativam o fallback para o próximo modelo
+function shouldFallback(error: any): boolean {
+  const msg = String(error?.message || error || "").toLowerCase();
+  const status = error?.status || error?.code || 0;
+  // Rate limit, quota exceeded, model unavailable, server overloaded
+  return (
+    status === 429 || status === 503 || status === 404 ||
+    msg.includes('429') || msg.includes('503') || msg.includes('404') ||
+    msg.includes('rate limit') || msg.includes('quota') ||
+    msg.includes('resource exhausted') || msg.includes('overloaded') ||
+    msg.includes('no longer available') || msg.includes('not found')
+  );
+}
+
 // ─── Timestamp → string legível ───
 function fmtTs(ts: any): string {
   if (!ts) return "";
@@ -105,25 +132,47 @@ export async function POST(req: Request) {
       };
     }
 
-    // ─── CALL AI ───
+    // ─── CALL AI COM CASCATA DE MODELOS ───
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: finalPrompt,
-      config
-    });
+    let responseText = "";
+    let lastError: any = null;
 
-    const responseText = response.text ?? "";
-    console.log("[Vitality AI] response.text:", responseText.substring(0, 300));
+    for (const model of MODEL_CASCADE) {
+      try {
+        console.log(`[Vitality AI] Tentando modelo: ${model}`);
+        const response = await ai.models.generateContent({
+          model,
+          contents: finalPrompt,
+          config
+        });
+        responseText = response.text ?? "";
+        console.log(`[Vitality AI] ✅ Sucesso com ${model} (${responseText.length} chars)`);
+        break; // sucesso — sai do loop
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        console.warn(`[Vitality AI] ❌ ${model} falhou: ${errMsg.substring(0, 120)}`);
+        if (shouldFallback(err)) {
+          console.log(`[Vitality AI] ↓ Fazendo fallback para próximo modelo...`);
+          continue; // tenta o próximo
+        }
+        // Erro não recuperável (ex: API key inválida) — não tenta mais
+        throw err;
+      }
+    }
+
+    // Se nenhum modelo funcionou
+    if (!responseText && lastError) {
+      throw lastError;
+    }
 
     if (!isChat) {
       const aiResult = responseText ? JSON.parse(responseText) : {};
-      // Mapear para formato compatível com o frontend existente (AIReport)
       const report = {
         resumo_geral: aiResult.resumo_turno || "Sem dados disponíveis.",
         pontos_atencao: aiResult.sinais_alerta || [],
         recomendacoes_rotina: (aiResult.acoes_pendentes || []).length > 0
-          ? [{ paciente: "Geral", data_referencia: new Date().toLocaleDateString('pt-BR'), acoes: aiResult.acoes_pendentes }]
+          ? [{ paciente: "Geral", data_referencia: hoje, acoes: aiResult.acoes_pendentes }]
           : [],
       };
       return NextResponse.json({ result: JSON.stringify(report) });
@@ -131,8 +180,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ result: responseText });
   } catch (error: unknown) {
-    console.error('Gemini API error:', error);
+    console.error('[Vitality AI] Todos os modelos falharam:', error);
     const msg = error instanceof Error ? error.message : 'Erro ao gerar insight';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
