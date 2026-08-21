@@ -503,7 +503,7 @@ export default function DashboardLobby() {
       )}
 
       {/* HEADER PRINCIPAL DO DASHBOARD */}
-      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <header className="mb-6 md:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-blue-700">
@@ -513,28 +513,28 @@ export default function DashboardLobby() {
               {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short" })}
             </span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
+          <h1 className="text-2xl md:text-4xl font-black tracking-tight text-slate-900">
             Painel Geral de Cuidados
           </h1>
-          <p className="text-slate-500 text-base mt-1">
+          <p className="text-slate-500 text-sm md:text-base mt-1">
             Gestão operacional em tempo real da rotina e segurança dos residentes.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => handleOpenQuickLog()}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 text-sm font-bold shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 active:scale-95"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-4 md:px-5 py-3 min-h-[44px] text-sm font-bold shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 ios-press"
           >
             <Plus className="h-4 w-4 stroke-[3]" />
-            Registrar Ocorrência
+            <span className="hidden sm:inline">Registrar</span> Ocorrência
           </button>
           <button
             onClick={() => router.push("/pacientes/novo")}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-5 py-3 text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 active:scale-95"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-4 md:px-5 py-3 min-h-[44px] text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 ios-press"
           >
             <Users className="h-4 w-4" />
-            + Residente
+            <span className="hidden sm:inline">+</span> Residente
           </button>
         </div>
       </header>
@@ -558,9 +558,9 @@ export default function DashboardLobby() {
       ) : (
         <div className="space-y-8">
           {/* SEÇÃO 1: MÉTRICAS & INDICADORES CHAVE (CARDS DE RESUMO) */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
             {/* Card 1: Total de Residentes */}
-            <div className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/50 hover:border-blue-300 hover:shadow-lg transition-all">
+            <div className="group rounded-3xl border border-slate-200/80 bg-white p-4 md:p-6 shadow-sm shadow-slate-200/50 hover:border-blue-300 hover:shadow-lg transition-all ios-press">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Monitorado</p>
@@ -579,7 +579,7 @@ export default function DashboardLobby() {
             </div>
 
             {/* Card 2: Requerem Atenção Prioritária */}
-            <div className="group rounded-3xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 to-white p-6 shadow-sm shadow-amber-100/50 hover:border-amber-400 hover:shadow-lg transition-all">
+            <div className="group rounded-3xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 to-white p-4 md:p-6 shadow-sm shadow-amber-100/50 hover:border-amber-400 hover:shadow-lg transition-all ios-press">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-amber-700">Atenção Prioritária</p>
@@ -597,7 +597,7 @@ export default function DashboardLobby() {
             </div>
 
             {/* Card 3: Progresso do Turno */}
-            <div className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/50 hover:border-indigo-300 hover:shadow-lg transition-all">
+            <div className="group rounded-3xl border border-slate-200/80 bg-white p-4 md:p-6 shadow-sm shadow-slate-200/50 hover:border-indigo-300 hover:shadow-lg transition-all ios-press">
               <div className="flex items-start justify-between">
                 <div className="w-full">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Rotinas do Turno</p>
@@ -618,7 +618,7 @@ export default function DashboardLobby() {
             </div>
 
             {/* Card 4: Ocorrências / Incidentes 24h */}
-            <div className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/50 hover:border-rose-300 hover:shadow-lg transition-all">
+            <div className="group rounded-3xl border border-slate-200/80 bg-white p-4 md:p-6 shadow-sm shadow-slate-200/50 hover:border-rose-300 hover:shadow-lg transition-all ios-press">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Registros 24h</p>
@@ -663,56 +663,78 @@ export default function DashboardLobby() {
                     return (
                       <div
                         key={tarefa.id}
-                        className={`group relative flex items-start gap-4 rounded-2xl border p-4 transition-all duration-300 ${
+                        className={`group relative rounded-2xl border p-3 md:p-4 transition-all duration-300 ios-press ${
                           tarefa.concluida
                             ? "bg-slate-50/60 border-slate-200/60 opacity-75"
                             : "bg-white border-slate-200/90 hover:border-indigo-300 hover:shadow-md"
                         }`}
                       >
-                        {/* Indicador de Horário */}
-                        <div className="shrink-0 flex flex-col items-center justify-center rounded-xl bg-slate-100 px-3 py-2 text-center min-w-[65px]">
-                          <span className="text-xs font-black text-slate-800">{tarefa.horario}</span>
-                          <span className="text-[10px] font-bold text-slate-400">Hora</span>
-                        </div>
+                        {/* Mobile: stacked layout / Desktop: horizontal */}
+                        <div className="flex flex-col gap-2.5 md:flex-row md:items-start md:gap-4">
+                          {/* Row 1 mobile: Horário + Nome + Badge */}
+                          <div className="flex items-center gap-3 md:contents">
+                            {/* Indicador de Horário */}
+                            <div className="shrink-0 flex flex-col items-center justify-center rounded-xl bg-slate-100 px-3 py-1.5 md:py-2 text-center min-w-[60px] md:min-w-[65px]">
+                              <span className="text-xs font-black text-slate-800">{tarefa.horario}</span>
+                              <span className="text-[10px] font-bold text-slate-400">Hora</span>
+                            </div>
 
-                        {/* Conteúdo da Tarefa */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-extrabold text-slate-900 truncate">
-                              {tarefa.pacienteNome}
-                            </span>
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                              {activityConfig?.label || tarefa.tipo}
-                            </span>
+                            {/* Nome + badge (visível inline no mobile) */}
+                            <div className="flex-1 min-w-0 md:hidden">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-extrabold text-slate-900 truncate">
+                                  {tarefa.pacienteNome}
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 shrink-0">
+                                  {activityConfig?.label || tarefa.tipo}
+                                </span>
+                              </div>
+                              <p className="text-xs font-bold text-slate-700 mt-0.5">{tarefa.titulo}</p>
+                            </div>
                           </div>
-                          <p className="text-xs font-bold text-slate-700 mt-0.5">{tarefa.titulo}</p>
-                          <p className="text-xs text-slate-500 truncate mt-1">{tarefa.detalhe}</p>
-                        </div>
 
-                        {/* Ações da Tarefa */}
-                        <div className="shrink-0 flex items-center gap-2 pt-1">
-                          {tarefa.concluida ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                              <Check className="h-3.5 w-3.5 stroke-[3]" /> Concluído
-                            </span>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleInitiateCheckTarefa(tarefa)}
-                                className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-bold shadow-sm transition-all active:scale-95"
-                                title="Confirmar execução"
-                              >
-                                <Check className="h-3.5 w-3.5 stroke-[3]" /> Check
-                              </button>
-                              <button
-                                onClick={() => handleOpenQuickLog(tarefa.pacienteId)}
-                                className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-2.5 py-2 text-xs font-bold shadow-sm transition-all"
-                                title="Registrar observação"
-                              >
-                                + Log
-                              </button>
-                            </>
-                          )}
+                          {/* Conteúdo completo (desktop) */}
+                          <div className="min-w-0 flex-1 hidden md:block">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-extrabold text-slate-900 truncate">
+                                {tarefa.pacienteNome}
+                              </span>
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                                {activityConfig?.label || tarefa.tipo}
+                              </span>
+                            </div>
+                            <p className="text-xs font-bold text-slate-700 mt-0.5">{tarefa.titulo}</p>
+                            <p className="text-xs text-slate-500 truncate mt-1">{tarefa.detalhe}</p>
+                          </div>
+
+                          {/* Detalhe mobile (row separado) */}
+                          <p className="text-xs text-slate-500 truncate md:hidden -mt-0.5">{tarefa.detalhe}</p>
+
+                          {/* Ações */}
+                          <div className="shrink-0 flex items-center gap-2 md:pt-1">
+                            {tarefa.concluida ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                                <Check className="h-3.5 w-3.5 stroke-[3]" /> Concluído
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleInitiateCheckTarefa(tarefa)}
+                                  className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 min-h-[44px] md:min-h-0 md:py-2 text-xs font-bold shadow-sm transition-all ios-press"
+                                  title="Confirmar execução"
+                                >
+                                  <Check className="h-3.5 w-3.5 stroke-[3]" /> Check
+                                </button>
+                                <button
+                                  onClick={() => handleOpenQuickLog(tarefa.pacienteId)}
+                                  className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-2.5 py-2 min-h-[44px] md:min-h-0 md:py-2 text-xs font-bold shadow-sm transition-all ios-press"
+                                  title="Registrar observação"
+                                >
+                                  + Log
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

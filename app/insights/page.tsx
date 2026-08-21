@@ -175,8 +175,8 @@ export default function InsightsPage() {
                 <Sparkles className="h-3.5 w-3.5" />
                 Inteligência Artificial
               </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">Insights IA</h1>
-              <p className="mt-2 max-w-2xl text-lg text-slate-500">
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-800 md:text-4xl">Insights IA</h1>
+              <p className="mt-2 max-w-2xl text-sm md:text-lg text-slate-500">
                 Converse com o Gemini para obter orientações sobre os cuidados e rotinas dos residentes.
               </p>
             </div>
@@ -184,9 +184,9 @@ export default function InsightsPage() {
 
           <div className="flex flex-col gap-8">
             {/* Input Section */}
-            <div className="group relative rounded-[2.5rem] bg-white p-2 shadow-xl shadow-indigo-900/5 transition-all duration-500 focus-within:shadow-indigo-500/20 focus-within:-translate-y-1">
-              <div className="absolute -inset-[2px] rounded-[2.6rem] bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 opacity-20 blur-sm transition-opacity duration-500 group-focus-within:opacity-60 group-focus-within:animate-pulse"></div>
-              <div className="relative flex flex-col gap-4 rounded-[2.25rem] bg-white p-6 md:p-8">
+            <div className="group relative rounded-3xl md:rounded-[2.5rem] bg-white p-2 shadow-xl shadow-indigo-900/5 transition-all duration-500 focus-within:shadow-indigo-500/20 focus-within:-translate-y-1">
+              <div className="absolute -inset-[2px] rounded-3xl md:rounded-[2.6rem] bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 opacity-20 blur-sm transition-opacity duration-500 group-focus-within:opacity-60 group-focus-within:animate-pulse"></div>
+              <div className="relative flex flex-col gap-4 rounded-[1.5rem] md:rounded-[2.25rem] bg-white p-5 md:p-8">
                 <label className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.15em] text-indigo-900/50">
                   <MessageSquare className="h-4 w-4" />
                   O que você gostaria de saber?
@@ -228,7 +228,7 @@ export default function InsightsPage() {
                   <button
                     onClick={handleGenerateInsight}
                     disabled={isGenerating || !prompt.trim()}
-                    className="group/btn flex items-center gap-3 rounded-[2rem] bg-slate-900 px-8 py-4 text-sm font-black text-white shadow-xl shadow-slate-900/20 transition-all duration-300 hover:-translate-y-1 hover:bg-indigo-600 hover:shadow-indigo-600/30 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+                    className="group/btn flex items-center gap-3 rounded-[2rem] bg-slate-900 px-6 md:px-8 py-3.5 md:py-4 min-h-[44px] text-sm font-black text-white shadow-xl shadow-slate-900/20 transition-all duration-300 hover:-translate-y-1 hover:bg-indigo-600 hover:shadow-indigo-600/30 ios-press disabled:pointer-events-none disabled:opacity-50"
                   >
                     {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 transition-transform group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1" />}
                     {isGenerating ? "Processando Análise..." : "Gerar Insight"}
@@ -239,7 +239,7 @@ export default function InsightsPage() {
 
             {/* Current Response */}
             {response && (
-              <div className="relative overflow-hidden rounded-[3rem] border border-indigo-100/50 bg-gradient-to-b from-white to-indigo-50/30 p-8 md:p-10 shadow-2xl shadow-indigo-900/10 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="relative overflow-hidden rounded-3xl md:rounded-[3rem] border border-indigo-100/50 bg-gradient-to-b from-white to-indigo-50/30 p-6 md:p-10 shadow-2xl shadow-indigo-900/10 animate-in fade-in slide-in-from-bottom-8 duration-700">
                 <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-400/10 blur-3xl" />
                 <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-purple-400/10 blur-3xl" />
                 
@@ -278,7 +278,7 @@ export default function InsightsPage() {
                     }) : 'Agora mesmo';
                     
                     return (
-                      <div key={item.id} className="group overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-sm shadow-slate-200/30 transition-all duration-300 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-900/5">
+                      <div key={item.id} className="group overflow-hidden rounded-2xl md:rounded-[2rem] border border-slate-200/80 bg-white shadow-sm shadow-slate-200/30 transition-all duration-300 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-900/5 ios-press">
                         <div 
                           className="flex cursor-pointer items-start justify-between gap-4 p-6 transition-colors hover:bg-slate-50/50"
                           onClick={() => setExpandedHistory(s => ({ ...s, [item.id]: !s[item.id] }))}

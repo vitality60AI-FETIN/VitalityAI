@@ -121,23 +121,23 @@ export default function ProntuariosPage() {
   return (
     <DashboardLayout>
         <main className="mx-auto w-full max-w-7xl">
-          <header className="mb-10 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <header className="mb-6 md:mb-10 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
               <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
                 <FileText className="h-3.5 w-3.5" />
                 Índice de Prontuários
               </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">
+              <h1 className="text-2xl font-black tracking-tight text-slate-800 md:text-4xl">
                 Prontuários Digital
               </h1>
-              <p className="mt-2 text-lg text-slate-500">
+              <p className="mt-2 text-sm md:text-lg text-slate-500">
                 Selecione um residente para abrir seu prontuário completo
               </p>
             </div>
           </header>
 
           <div className="mb-10">
-            <div className="group relative flex items-center rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm shadow-slate-100 transition-all focus-within:border-blue-400 focus-within:shadow-md focus-within:shadow-blue-100/50 hover:border-blue-200">
+            <div className="group relative flex items-center rounded-2xl md:rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm shadow-slate-100 transition-all focus-within:border-blue-400 focus-within:shadow-md focus-within:shadow-blue-100/50 hover:border-blue-200">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.5rem] bg-slate-50 text-slate-400 transition-colors group-focus-within:bg-blue-50 group-focus-within:text-blue-600">
                 <Search className="h-5 w-5" />
               </div>
@@ -175,12 +175,12 @@ export default function ProntuariosPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
               {pacientesFiltrados.map((paciente) => (
                 <button
                   key={paciente.id}
                   onClick={() => abrirProntuario(paciente.id)}
-                  className="group relative flex w-full flex-col overflow-hidden rounded-[2.5rem] border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/30 transition-all duration-300 hover:-translate-y-1.5 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 text-left"
+                  className="group relative flex w-full flex-col overflow-hidden rounded-3xl md:rounded-[2.5rem] border border-slate-200/80 bg-white p-5 md:p-6 shadow-sm shadow-slate-200/30 transition-all duration-300 hover:-translate-y-1.5 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 text-left ios-press min-h-[44px]"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
                   
