@@ -103,6 +103,18 @@ export default function InsightsPage() {
     setResponse("");
 
     try {
+      // Ordenar logs cronologicamente (mais recentes primeiro) antes de enviar
+      const sortedLogs = [...logs].sort((a, b) => {
+        const getMs = (l: any) => {
+          if (l.dataHora?.seconds) return l.dataHora.seconds * 1000;
+          if (l.dataHora?.toMillis) return l.dataHora.toMillis();
+          if (typeof l.dataHora === 'string') { const t = new Date(l.dataHora).getTime(); if (!isNaN(t)) return t; }
+          if (l.dataTurno) { const t = new Date(l.dataTurno).getTime(); if (!isNaN(t)) return t; }
+          return 0;
+        };
+        return getMs(b) - getMs(a);
+      });
+
       const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/insights", {
         method: "POST",
@@ -114,7 +126,7 @@ export default function InsightsPage() {
           prompt, 
           mode: "chat",
           patients: pacientes,
-          logs: logs.slice(0, 50)
+          logs: sortedLogs.slice(0, 100)
         }),
       });
 
