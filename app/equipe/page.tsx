@@ -167,14 +167,14 @@ export default function EquipePage() {
   return (
     <DashboardLayout>
         <main className="mx-auto w-full max-w-5xl">
-          <header className="mb-10 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <header className="mb-6 md:mb-10 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
               <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-blue-700">
                 <Users className="h-3.5 w-3.5" />
                 Gestão da Instituição
               </p>
-              <h1 className="text-3xl font-black tracking-tight text-slate-800 md:text-4xl">Equipe</h1>
-              <p className="mt-2 max-w-2xl text-lg text-slate-500">
+              <h1 className="text-2xl font-black tracking-tight text-slate-800 md:text-4xl">Equipe</h1>
+              <p className="mt-2 max-w-2xl text-sm md:text-lg text-slate-500">
                 Gerencie os cuidadores e profissionais de saúde da sua instituição.
               </p>
             </div>
@@ -183,7 +183,7 @@ export default function EquipePage() {
           <div className="flex flex-col gap-6">
             
             {/* Invite Section */}
-            <section className="relative overflow-hidden rounded-[2.5rem] border border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-8 shadow-sm shadow-blue-100/50 transition-all hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
+            <section className="relative overflow-hidden rounded-3xl md:rounded-[2.5rem] border border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-5 md:p-8 shadow-sm shadow-blue-100/50 transition-all hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
               <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
@@ -202,7 +202,7 @@ export default function EquipePage() {
                   </div>
                   <button 
                     onClick={copiarCodigo}
-                    className="group flex items-center gap-2 px-5 py-3.5 bg-blue-600 text-white font-bold rounded-[1.25rem] hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/30 transition-all hover:-translate-y-0.5 active:scale-95"
+                    className="group flex items-center gap-2 px-5 py-3.5 min-h-[44px] bg-blue-600 text-white font-bold rounded-[1.25rem] hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/30 transition-all hover:-translate-y-0.5 ios-press"
                   >
                     {copied ? <CheckCircle2 className="h-5 w-5" /> : <Copy className="h-5 w-5 transition-transform group-hover:scale-110" />}
                     {copied ? "Copiado!" : "Copiar Código"}
@@ -218,9 +218,9 @@ export default function EquipePage() {
                 Membros da Instituição ({membros.length})
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                 {membros.map((membro) => (
-                  <div key={membro.id} className="group rounded-[2rem] border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-100/50 flex items-center gap-5 transition-all duration-300 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1">
+                  <div key={membro.id} className="group rounded-2xl md:rounded-[2rem] border border-slate-200/80 bg-white p-4 md:p-5 shadow-sm shadow-slate-100/50 flex items-center gap-4 md:gap-5 transition-all duration-300 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1 ios-press">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-slate-50 text-xl font-black text-slate-500 transition-colors group-hover:bg-blue-600 group-hover:text-white">
                       {membro.nomeCompleto?.charAt(0) || "U"}
                     </div>
@@ -271,9 +271,9 @@ export default function EquipePage() {
                   <p className="text-slate-500 font-medium text-lg">Nenhum paciente cadastrado nesta instituição ainda.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                   {pacientes.map((paciente) => (
-                    <div key={paciente.id} className="group rounded-[2rem] border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-100/50 flex items-center justify-between gap-4 transition-all duration-300 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-900/5 hover:-translate-y-1">
+                    <div key={paciente.id} className="group rounded-2xl md:rounded-[2rem] border border-slate-200/80 bg-white p-4 md:p-5 shadow-sm shadow-slate-100/50 flex items-center justify-between gap-4 transition-all duration-300 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-900/5 hover:-translate-y-1 ios-press">
                       <div className="flex items-center gap-4 min-w-0">
                         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-slate-50 text-xl font-black text-slate-500 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
                           {paciente.nome?.charAt(0) || "P"}

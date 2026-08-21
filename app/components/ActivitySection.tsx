@@ -118,13 +118,13 @@ export default function ActivitySection({
   };
 
   return (
-    <div className="group rounded-[2rem] border border-slate-200/90 bg-white p-5 shadow-sm shadow-slate-200/40 transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-900/5">
+    <div className="group rounded-2xl md:rounded-[2rem] border border-slate-200/90 bg-white p-3.5 md:p-5 shadow-sm shadow-slate-200/40 transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-900/5">
       {/* Header do Card */}
-      <div className="mb-5 flex items-start gap-4">
+      <div className="mb-3.5 md:mb-5 flex items-start gap-3 md:gap-4">
         <div
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] transition-colors ${config.bgColor} ${config.textColor}`}
+          className={`flex h-10 w-10 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-xl md:rounded-[1.25rem] transition-colors ${config.bgColor} ${config.textColor}`}
         >
-          <IconComponent className="h-6 w-6" />
+          <IconComponent className="h-5 w-5 md:h-6 md:w-6" />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -139,7 +139,7 @@ export default function ActivitySection({
             )}
           </div>
 
-          <p className="text-sm text-slate-600 mt-0.5">
+          <p className="text-xs md:text-sm text-slate-600 mt-0.5">
             {tipo === "hidratacao"
               ? "Quanto foi ingerido neste turno?"
               : tipo === "alimentacao"
@@ -168,7 +168,7 @@ export default function ActivitySection({
       </div>
 
       {/* Grid Flex de Chips sem Corte de Texto */}
-      <div className="flex flex-wrap gap-2.5">
+      <div className="flex flex-wrap gap-2">
         {config.options.map((option) => {
           const isSelected = selectedList.includes(option.value);
           const isSemIntercorrencia = option.value === "Sem intercorrências";
@@ -191,7 +191,7 @@ export default function ActivitySection({
               key={option.value}
               type="button"
               onClick={() => handleToggleOption(option.value)}
-              className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-xs sm:text-sm font-bold transition-all duration-200 active:scale-95 ${
+              className={`flex items-center gap-1.5 md:gap-2 rounded-xl md:rounded-2xl border px-3 md:px-4 py-2.5 md:py-3 text-xs font-bold transition-all duration-200 ios-press min-h-[44px] md:min-h-0 ${
                 isSelected ? activeStyle : inactiveStyle
               }`}
             >
@@ -211,7 +211,7 @@ export default function ActivitySection({
       </div>
 
       {/* Campo de Detalhe Rápido */}
-      <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 transition-colors group-hover:bg-slate-50">
+      <div className="mt-3.5 md:mt-5 rounded-xl md:rounded-2xl border border-slate-100 bg-slate-50/80 p-3 md:p-4 transition-colors group-hover:bg-slate-50">
         <label className="mb-2.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
           <StickyNote className="h-3.5 w-3.5 text-slate-400" />
           Observação / Detalhe Rápido
@@ -221,7 +221,7 @@ export default function ActivitySection({
           value={detailValue}
           onChange={(e) => onDetailChange(e.target.value)}
           placeholder={config.detailPlaceholder}
-          className="w-full rounded-2xl border-2 border-slate-200/80 bg-white px-4 py-3 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-blue-500 focus:shadow-md focus:shadow-blue-500/10"
+          className="w-full rounded-xl md:rounded-2xl border-2 border-slate-200/80 bg-white px-3 md:px-4 py-2.5 md:py-3 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-blue-500 focus:shadow-md focus:shadow-blue-500/10"
         />
       </div>
     </div>

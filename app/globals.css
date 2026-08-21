@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+/* ── iOS Safe Area Utilities ──────────────────────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* ── iOS Tab Bar Bottom Padding (content clearance) ───────────────── */
+.pb-tab-bar {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── iOS Press Feedback (Haptic-like scale) ───────────────────────── */
+.ios-press {
+  transition: transform 150ms ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.ios-press:active {
+  transform: scale(0.97);
+}
+
+/* ── Glassmorphism — iOS Tab Bar / Frosted Glass ──────────────────── */
+.glass-bar {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* ── iOS Header — Large Title transition ──────────────────────────── */
+.ios-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}

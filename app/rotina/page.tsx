@@ -327,7 +327,7 @@ export default function LogRotinaPage() {
 
       <main className="mx-auto w-full max-w-7xl px-4 md:px-6 py-6 md:py-10">
         {/* Header da Tela */}
-        <header className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <header className="mb-6 md:mb-8 flex flex-col gap-4 md:gap-6 lg:flex-row lg:items-end lg:justify-between animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-800">
@@ -335,15 +335,15 @@ export default function LogRotinaPage() {
                 Atualizações Ao Vivo (Realtime)
               </span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
+            <h1 className="text-2xl md:text-4xl font-black tracking-tight text-slate-900">
               Log de Rotina Assistencial
             </h1>
-            <p className="mt-2 text-slate-500 text-base max-w-2xl">
+            <p className="mt-2 text-slate-500 text-sm md:text-base max-w-2xl">
               Marque as atividades prestadas durante o turno. As informações atualizam instantaneamente e alimentam o status do residente.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-5 text-sm text-blue-900 shadow-sm min-w-[280px]">
+          <div className="rounded-2xl md:rounded-3xl border border-blue-100 bg-blue-50/70 p-4 md:p-5 text-sm text-blue-900 shadow-sm min-w-0 md:min-w-[280px]">
             <div className="flex items-center gap-2 font-black">
               <History className="h-4 w-4 text-blue-600" />
               Rascunho Inteligente
@@ -371,7 +371,7 @@ export default function LogRotinaPage() {
         ) : (
           <div className="space-y-6">
             {/* Campo de Busca de Residentes */}
-            <div className="relative flex items-center rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm focus-within:border-blue-500 focus-within:shadow-md transition-all">
+            <div className="relative flex items-center rounded-2xl md:rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm focus-within:border-blue-500 focus-within:shadow-md transition-all">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
                 <Search className="h-5 w-5" />
               </div>
@@ -409,7 +409,7 @@ export default function LogRotinaPage() {
                 return (
                   <div
                     key={paciente.id}
-                    className={`group/patient overflow-hidden rounded-[2.5rem] border bg-white shadow-sm transition-all duration-300 ${
+                    className={`group/patient overflow-hidden rounded-3xl md:rounded-[2.5rem] border bg-white shadow-sm transition-all duration-300 ios-press ${
                       isExpanded
                         ? "border-blue-400 ring-2 ring-blue-100 shadow-xl"
                         : "border-slate-200 hover:border-blue-300 hover:shadow-md"
@@ -417,29 +417,29 @@ export default function LogRotinaPage() {
                   >
                     {/* Top Header Card Residente */}
                     <div
-                      className="flex items-center justify-between gap-4 p-6 cursor-pointer hover:bg-slate-50/60 transition-colors"
+                      className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 p-4 md:p-6 cursor-pointer hover:bg-slate-50/60 transition-colors"
                       onClick={() => setExpanded((s) => ({ ...s, [paciente.id]: !s[paciente.id] }))}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 font-black text-xl shadow-sm">
+                      <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                        <div className="flex h-11 w-11 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-xl md:rounded-2xl bg-blue-50 text-blue-700 font-black text-lg md:text-xl shadow-sm">
                           {paciente.nome.charAt(0)}
                         </div>
-                        <div className="min-w-0">
-                          <h3 className="text-lg font-black text-slate-900 tracking-tight truncate group-hover/patient:text-blue-600 transition-colors">
-                            {paciente.nome}{" "}
-                            <span className="text-sm font-semibold text-slate-400 ml-1">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-base md:text-lg font-black text-slate-900 tracking-tight truncate group-hover/patient:text-blue-600 transition-colors">
+                            {paciente.nome}
+                            <span className="text-xs md:text-sm font-semibold text-slate-400 ml-1">
                               • {paciente.idade} anos
                             </span>
                           </h3>
-                          <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                            {isExpanded ? "Clique para recolher" : "Clique para expandir e registrar rotina"}
+                          <p className="text-[11px] md:text-xs font-semibold text-slate-500 mt-0.5">
+                            {isExpanded ? "Clique para recolher" : "Toque para registrar rotina"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-14 md:ml-0">
                         <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-wider ${
+                          className={`rounded-full border px-2.5 md:px-3 py-1 text-[10px] md:text-[11px] font-black uppercase tracking-wider ${
                             paciente.statusSeguranca === "Verde"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : paciente.statusSeguranca === "Amarelo"
@@ -458,7 +458,7 @@ export default function LogRotinaPage() {
                             e.stopPropagation();
                             router.push(`/pacientes/${paciente.id}`);
                           }}
-                          className="rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition-all"
+                          className="rounded-xl md:rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-3 md:px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition-all ios-press min-h-[44px] md:min-h-0"
                         >
                           Prontuário
                         </button>
@@ -466,7 +466,7 @@ export default function LogRotinaPage() {
                     </div>
 
                     {/* BANNER DINÂMICO AO VIVO: RASCUNHO & HISTÓRICO DE HOJE */}
-                    <div className="border-t border-slate-100 bg-slate-50/70 px-6 py-3.5 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-3">
+                    <div className="border-t border-slate-100 bg-slate-50/70 px-4 md:px-6 py-3 md:py-3.5 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 md:gap-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-extrabold text-slate-900 flex items-center gap-1.5">
                           <span className="h-2 w-2 rounded-full bg-blue-600 animate-ping" />
@@ -497,7 +497,7 @@ export default function LogRotinaPage() {
                     {/* Conteúdo Expandido do Card do Residente */}
                     {isExpanded && (
                       <>
-                        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/50 p-6 lg:grid-cols-2 xl:grid-cols-3">
+                        <div className="grid gap-3 md:gap-4 border-t border-slate-100 bg-slate-50/50 p-3 md:p-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                           {allActivityTypes.map((activityType) => {
                             const tipo = activityType.id as ActivityType;
                             const selectedStatus = draft.atividades[tipo].status;
@@ -519,8 +519,8 @@ export default function LogRotinaPage() {
                           })}
                         </div>
 
-                        <div className="border-t border-slate-100 bg-white p-6 md:p-8">
-                          <div className="mb-6 rounded-[2rem] border border-slate-100 bg-slate-50/70 p-6">
+                        <div className="border-t border-slate-100 bg-white p-4 md:p-8">
+                          <div className="mb-4 md:mb-6 rounded-2xl md:rounded-[2rem] border border-slate-100 bg-slate-50/70 p-4 md:p-6">
                             <label className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
                               <StickyNote className="h-4 w-4 text-blue-600" />
                               Observação Geral do Turno (Opcional)
@@ -538,7 +538,7 @@ export default function LogRotinaPage() {
                               }
                               rows={2}
                               placeholder="Observação geral para a passagem de plantão..."
-                              className="w-full rounded-2xl border-2 border-slate-200 bg-white p-4 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-blue-500 transition-all resize-none"
+                              className="w-full rounded-xl md:rounded-2xl border-2 border-slate-200 bg-white p-3 md:p-4 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-blue-500 transition-all resize-none"
                             />
                           </div>
 
@@ -551,7 +551,7 @@ export default function LogRotinaPage() {
                             <button
                               onClick={() => abrirConclusaoTurno(paciente)}
                               disabled={totalRascunhoAtual === 0 && !draft.observacaoTurno.trim()}
-                              className="w-full sm:w-auto rounded-2xl bg-slate-900 hover:bg-blue-600 text-white px-8 py-4 font-black text-sm shadow-xl transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed hover:-translate-y-0.5 active:scale-95"
+                              className="w-full sm:w-auto rounded-2xl bg-slate-900 hover:bg-blue-600 text-white px-6 md:px-8 py-3.5 md:py-4 min-h-[44px] font-black text-sm shadow-xl transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed hover:-translate-y-0.5 ios-press"
                             >
                               Concluir Turno de {paciente.nome.split(" ")[0]}
                             </button>
