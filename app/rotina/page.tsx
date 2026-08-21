@@ -409,7 +409,7 @@ export default function LogRotinaPage() {
                 return (
                   <div
                     key={paciente.id}
-                    className={`group/patient overflow-hidden rounded-3xl md:rounded-[2.5rem] border bg-white shadow-sm transition-all duration-300 ios-press ${
+                    className={`group/patient overflow-hidden rounded-3xl md:rounded-[2.5rem] border bg-white shadow-sm transition-all duration-300 ${
                       isExpanded
                         ? "border-blue-400 ring-2 ring-blue-100 shadow-xl"
                         : "border-slate-200 hover:border-blue-300 hover:shadow-md"

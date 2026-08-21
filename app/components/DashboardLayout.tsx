@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { auth } from "../../lib/firebase";
 import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -14,6 +14,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [userName, setUserName] = useState("Cuidador");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { role } = useInstitucaoId();
@@ -54,16 +55,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { label: "Insights", path: "/insights", icon: Brain },
     ...(role === "Admin" ? [{ label: "Equipe", path: "/equipe", icon: Users }] : []),
   ];
-
-  // ── Título dinâmico baseado na rota ativa ──
-  const getPageTitle = () => {
-    if (pathname === "/dashboard") return "Painel Geral";
-    if (pathname.startsWith("/pacientes")) return "Prontuários";
-    if (pathname.startsWith("/rotina")) return "Log de Rotina";
-    if (pathname.startsWith("/insights")) return "Insights IA";
-    if (pathname.startsWith("/equipe")) return "Equipe";
-    return "Vitality AI";
-  };
 
   const isActivePath = (path: string) =>
     pathname === path || (path !== "/dashboard" && pathname.startsWith(path));
@@ -148,26 +139,90 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           ═══════════════════════════════════════════════════════════ */}
       <div className="flex-1 flex flex-col overflow-y-auto print:overflow-visible relative print:block">
 
-        {/* ── iOS MOBILE HEADER — Large Title (mobile only) ─────── */}
-        <header className="md:hidden ios-header bg-slate-50/90 glass-bar border-b border-slate-200/60 px-5 pb-3 pt-3 z-10 sticky top-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-blue-600 uppercase tracking-[0.15em] flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-                Vitality AI
-              </p>
-              <h1 className="text-[1.65rem] font-black tracking-tight text-slate-900 leading-tight mt-0.5">
-                {getPageTitle()}
-              </h1>
+        {/* ── NEW TOP HEADER (Branding & Minimalist Focus — Mobile Only) ─────── */}
+        <header className="md:hidden ios-header sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100/80 px-4 py-3 flex items-center justify-between transition-all">
+          {/* Lado Esquerdo: Marca Vitality AI com gradiente e ícone Sparkles */}
+          <button 
+            onClick={() => router.push("/dashboard")}
+            className="flex items-center gap-2 text-left group active:opacity-75 transition-opacity"
+          >
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-xs">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
+            <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-500 bg-clip-text text-transparent font-bold text-lg tracking-tight">
+              Vitality AI
+            </span>
+          </button>
+
+          {/* Lado Direito: Avatar Squircle (Abre o menu popover do perfil) */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleLogout}
-              className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-black shadow-lg shadow-blue-600/25 ios-press"
-              title="Perfil"
+              onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+              className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-semibold text-xs shadow-xs active:scale-95 transition-transform"
+              aria-label="Menu do Perfil"
+              title="Menu do Perfil"
             >
               {userName.charAt(0).toUpperCase()}
             </button>
           </div>
+
+          {/* Menu Dropdown Popover do Perfil */}
+          {isProfileMenuOpen && (
+            <>
+              <div 
+                className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-xs md:hidden"
+                onClick={() => setIsProfileMenuOpen(false)}
+              />
+              <div className="absolute right-4 top-12 z-50 w-72 rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 md:hidden">
+                <div className="flex items-center gap-3 p-2 pb-3 border-b border-slate-100">
+                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-sm font-semibold shadow-xs">
+                    {userName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900 truncate">{userName}</p>
+                    <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-600 mt-0.5">
+                      {role === "Admin" ? "Administrador" : "Cuidador"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-3">
+                  <button
+                    onClick={() => {
+                      router.push("/dashboard");
+                      setIsProfileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                  >
+                    <LayoutDashboard className="h-4 w-4 text-blue-600" />
+                    Ir para o Painel Geral
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      router.push("/pacientes");
+                      setIsProfileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                  >
+                    <FolderHeart className="h-4 w-4 text-blue-600" />
+                    Prontuários
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsProfileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors mt-2 border-t border-slate-100 pt-3"
+                  >
+                    <LogOut className="h-4 w-4 text-rose-600" />
+                    Encerrar Sessão
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </header>
 
         {/* ── DESKTOP NAVBAR — unchanged, hidden on mobile ──────── */}
@@ -184,16 +239,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </nav>
 
-        {/* ── CHILDREN RENDER ── */}
-        <main className="max-w-7xl mx-auto w-full px-4 md:px-6 py-6 md:py-10 pb-tab-bar md:pb-10 print:py-0 print:px-0">
+        {/* ── CHILDREN RENDER — pb-28 em mobile para a Tab Bar não cobrir conteúdo ── */}
+        <main className="max-w-7xl mx-auto w-full px-4 md:px-6 py-6 md:py-10 pb-28 md:pb-10 print:py-0 print:px-0">
           {children}
         </main>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          iOS TAB BAR — Bottom Navigation (mobile only)
+          iOS BOTTOM TAB BAR — Fixed Solid Blur (Mobile Only)
           ═══════════════════════════════════════════════════════════ */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 glass-bar border-t border-black/8 pb-safe print:hidden">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 pb-safe print:hidden shadow-lg shadow-slate-900/5">
         <div className="flex items-center justify-around px-1 pt-2 pb-1">
           {tabItems.map((tab) => {
             const active = isActivePath(tab.path);

@@ -191,12 +191,12 @@ export default function ActivitySection({
               key={option.value}
               type="button"
               onClick={() => handleToggleOption(option.value)}
-              className={`flex items-center gap-1.5 md:gap-2 rounded-xl md:rounded-2xl border px-3 md:px-4 py-2.5 md:py-3 text-xs font-bold transition-all duration-200 ios-press min-h-[44px] md:min-h-0 ${
+              className={`flex items-center gap-2 rounded-xl md:rounded-2xl border px-3.5 md:px-4 py-3 text-xs md:text-sm font-bold transition-all duration-150 touch-manipulation select-none cursor-pointer active:scale-[0.97] min-h-[44px] ${
                 isSelected ? activeStyle : inactiveStyle
               }`}
             >
               <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all pointer-events-none ${
                   isSelected
                     ? "border-white bg-white text-blue-700"
                     : "border-current opacity-40"
@@ -204,7 +204,7 @@ export default function ActivitySection({
               >
                 {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
               </span>
-              <span className="whitespace-normal text-left">{option.label}</span>
+              <span className="whitespace-normal text-left pointer-events-none">{option.label}</span>
             </button>
           );
         })}

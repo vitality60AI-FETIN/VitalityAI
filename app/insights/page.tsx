@@ -278,7 +278,7 @@ export default function InsightsPage() {
                     }) : 'Agora mesmo';
                     
                     return (
-                      <div key={item.id} className="group overflow-hidden rounded-2xl md:rounded-[2rem] border border-slate-200/80 bg-white shadow-sm shadow-slate-200/30 transition-all duration-300 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-900/5 ios-press">
+                      <div key={item.id} className="group overflow-hidden rounded-2xl md:rounded-[2rem] border border-slate-200/80 bg-white shadow-sm shadow-slate-200/30 transition-all duration-300 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-900/5">
                         <div 
                           className="flex cursor-pointer items-start justify-between gap-4 p-6 transition-colors hover:bg-slate-50/50"
                           onClick={() => setExpandedHistory(s => ({ ...s, [item.id]: !s[item.id] }))}

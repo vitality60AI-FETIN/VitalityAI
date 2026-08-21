@@ -663,7 +663,7 @@ export default function DashboardLobby() {
                     return (
                       <div
                         key={tarefa.id}
-                        className={`group relative rounded-2xl border p-3 md:p-4 transition-all duration-300 ios-press ${
+                        className={`group relative rounded-2xl border p-3 md:p-4 transition-all duration-300 ${
                           tarefa.concluida
                             ? "bg-slate-50/60 border-slate-200/60 opacity-75"
                             : "bg-white border-slate-200/90 hover:border-indigo-300 hover:shadow-md"
