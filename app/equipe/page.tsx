@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users, KeyRound, CheckCircle2, Copy, FileText } from "lucide-react";
+import { Users, KeyRound, CheckCircle2, Copy, FileText, Building2 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from "firebase/firestore";
-import { useInstitucaoId } from "../../lib/hooks";
+import { useInstitucaoId, useInstitucaoData } from "../../lib/hooks";
 import { normalizeLogRecords } from "../../lib/logNormalizer";
 import { enriquecerPacientesComStatus } from "../../lib/statusSeguranca";
 
@@ -49,6 +49,7 @@ export default function EquipePage() {
 
   const router = useRouter();
   const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicao } = useInstitucaoData();
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -170,15 +171,24 @@ export default function EquipePage() {
     <DashboardLayout>
         <main className="mx-auto w-full max-w-5xl">
           <header className="mb-6 md:mb-10 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div>
-              <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-blue-700">
-                <Users className="h-3.5 w-3.5" />
-                Gestão da Instituição
-              </p>
-              <h1 className="text-2xl font-black tracking-tight text-slate-800 md:text-4xl">Equipe</h1>
-              <p className="mt-2 max-w-2xl text-sm md:text-lg text-slate-500">
-                Gerencie os cuidadores e profissionais de saúde da sua instituição.
-              </p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  {instituicao?.logotipoUrl ? (
+                    <div className="h-9 w-9 rounded-xl overflow-hidden bg-white border border-slate-200 shadow-xs shrink-0">
+                      <img src={instituicao.logotipoUrl} alt={instituicao.nome} className="h-full w-full object-cover" />
+                    </div>
+                  ) : null}
+                  <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-blue-700">
+                    <Users className="h-3.5 w-3.5" />
+                    {instituicao?.nome || instituicaoNome || "Gestão da Instituição"}
+                  </span>
+                </div>
+                <h1 className="text-2xl font-black tracking-tight text-slate-800 md:text-4xl">Equipe Assistencial</h1>
+                <p className="mt-2 max-w-2xl text-sm md:text-lg text-slate-500">
+                  Gerencie os cuidadores e profissionais de saúde vinculados à sua unidade.
+                </p>
+              </div>
             </div>
           </header>
 

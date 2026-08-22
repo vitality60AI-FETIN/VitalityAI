@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, ChevronLeft, ChevronRight, Sparkles, User } from "lucide-react";
+import Link from "next/link";
+import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, ChevronLeft, ChevronRight, Sparkles, User, Building2, ExternalLink } from "lucide-react";
 import { auth } from "../../lib/firebase";
-import { useInstitucaoId, useCuidadorData } from "../../lib/hooks";
+import { useInstitucaoId, useCuidadorData, useInstitucaoData } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 interface DashboardLayoutProps {
@@ -19,7 +20,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { role } = useInstitucaoId();
   const { cuidador } = useCuidadorData();
+  const { instituicao } = useInstitucaoData();
   const fotoUrl = (cuidador as any)?.fotoUrl || null;
+  const instLogoUrl = (instituicao as any)?.logotipoUrl || null;
+  const instNome = (instituicao as any)?.nome || "Instituição";
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -46,7 +50,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Prontuários", path: "/pacientes", icon: FolderHeart },
     { name: "Log de Rotina", path: "/rotina", icon: Activity },
     { name: "Insights IA", path: "/insights", icon: Brain },
-    ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: Users }] : []),
+    ...(role === "Admin" ? [
+      { name: "Equipe", path: "/equipe", icon: Users },
+      { name: "Instituição", path: "/instituicao", icon: Building2 },
+    ] : []),
     { name: "Meu Perfil", path: "/perfil", icon: User },
   ];
 
@@ -70,15 +77,67 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           ═══════════════════════════════════════════════════════════ */}
       <aside className={`bg-slate-950 border-r border-slate-800 transition-all duration-300 hidden md:flex flex-col justify-between shadow-2xl shadow-slate-900/50 z-20 relative print:hidden ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
         <div>
-          {/* Logo Brand */}
-          <div className="flex items-center gap-4 px-6 py-8 border-b border-white/5 cursor-default h-[104px]">
-            <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/50">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M5 5l7 14 7-14" /></svg>
+          {/* Logo Brand Interativo com Brilho e Shimmer */}
+          <div className="flex flex-col border-b border-white/5 cursor-default">
+            <div className="flex items-center gap-4 px-6 py-6 h-[88px]">
+              <Link
+                href="/dashboard"
+                className="relative group flex items-center gap-3 text-left focus:outline-none"
+              >
+                {/* Ícone com Brilho Pulsante e Efeito Holográfico */}
+                <div className="relative w-12 h-12 shrink-0">
+                  <div className="absolute inset-0 bg-blue-500/30 rounded-2xl blur-md group-hover:bg-indigo-500/50 transition-all duration-500 animate-pulse" />
+                  <div className="relative w-12 h-12 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-900/50 group-hover:scale-105 group-hover:rotate-3 transition-transform duration-300">
+                    <Sparkles className="w-6 h-6 text-white drop-shadow-md animate-pulse" />
+                  </div>
+                </div>
+
+                {!isSidebarCollapsed && (
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-black tracking-tight text-white whitespace-nowrap overflow-hidden transition-all duration-300">
+                      Vitalidade{" "}
+                      <span className="bg-gradient-to-r from-blue-400 via-indigo-300 via-purple-300 to-cyan-300 bg-clip-text text-transparent italic animate-shimmer-text">
+                        AI
+                      </span>
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-400/80 -mt-1">
+                      IA Assistencial
+                    </span>
+                  </div>
+                )}
+              </Link>
             </div>
+
+            {/* Badge/Card da Instituição com Logo */}
             {!isSidebarCollapsed && (
-              <span className="text-2xl font-semibold tracking-tight text-white whitespace-nowrap overflow-hidden transition-all duration-300">
-                Vitalidade <span className="text-blue-500 italic font-black">AI</span>
-              </span>
+              <div className="px-4 pb-4">
+                <button
+                  onClick={() => role === "Admin" && router.push("/instituicao")}
+                  className={`w-full flex items-center gap-3 p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800/80 transition-all duration-300 ${
+                    role === "Admin" ? "hover:border-blue-500/50 hover:bg-slate-900 cursor-pointer group" : "cursor-default"
+                  }`}
+                  title={role === "Admin" ? "Configurar Instituição" : instNome}
+                >
+                  <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center text-slate-300 font-bold text-xs shrink-0 border border-slate-700/60 shadow-xs">
+                    {instLogoUrl ? (
+                      <img src={instLogoUrl} alt={instNome} className="h-full w-full object-cover" />
+                    ) : (
+                      <Building2 className="w-4 h-4 text-blue-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="text-xs font-black text-slate-200 truncate group-hover:text-blue-400 transition-colors">
+                      {instNome}
+                    </p>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {role === "Admin" ? "Configurar Unidade" : "Unidade Ativa"}
+                    </span>
+                  </div>
+                  {role === "Admin" && (
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-400 transition-colors shrink-0 mr-1" />
+                  )}
+                </button>
+              </div>
             )}
           </div>
 
@@ -90,57 +149,59 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </button>
 
           {/* Navigation Menu */}
-          <nav className="p-4 space-y-2 mt-4">
+          <nav className="p-4 space-y-1.5 mt-4">
             {menuItems.map((item) => {
               const isActive = isActivePath(item.path);
               const Icon = item.icon;
               return (
-                <button
+                <Link
                   key={item.name}
-                  onClick={() => router.push(item.path)}
+                  href={item.path}
                   title={isSidebarCollapsed ? item.name : ""}
-                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-4'} gap-4 py-4 rounded-2xl transition-all font-bold text-sm
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-4'} gap-4 py-3.5 rounded-2xl transition-all duration-200 font-bold text-sm select-none
                     ${isActive 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' 
-                      : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-100'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 font-black' 
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'
                     }`}
                 >
-                  <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <Icon className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   {!isSidebarCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
-                </button>
+                </Link>
               );
             })}
           </nav>
         </div>
 
         {/* User Profile & Logout at the bottom */}
-        <div className="p-4 border-t border-white/5">
+        <div className="p-4 border-t border-white/5 space-y-2">
           {!isSidebarCollapsed && (
-            <button
-              onClick={() => router.push("/perfil")}
-              className="w-full flex items-center gap-4 px-4 py-3.5 bg-slate-900 hover:bg-slate-800 rounded-[1.25rem] mb-3 border border-slate-800/50 text-left transition-colors group cursor-pointer"
+            <Link
+              href="/perfil"
+              className="w-full flex items-center gap-3.5 px-3.5 py-3 bg-slate-900/90 hover:bg-slate-900 rounded-2xl border border-slate-800/80 text-left transition-all group cursor-pointer"
               title="Acessar Meu Perfil"
             >
-               <div className="h-10 w-10 rounded-[1rem] overflow-hidden bg-blue-900/40 flex items-center justify-center text-blue-400 font-black uppercase shrink-0 border border-blue-800/30 shadow-inner group-hover:border-blue-500">
+               <div className="h-10 w-10 rounded-xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm uppercase shrink-0 border border-blue-400/30 shadow-md group-hover:border-blue-400">
                   {fotoUrl ? (
                     <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
                   ) : (
-                    displayName.charAt(0)
+                    <User className="w-5 h-5 text-white" />
                   )}
                </div>
                <div className="truncate text-left flex-1">
-                 <p className="text-sm font-black text-white truncate group-hover:text-blue-400 transition-colors">{displayName}</p>
-                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mt-0.5">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
+                 <p className="text-xs font-black text-white truncate group-hover:text-blue-400 transition-colors">{displayName}</p>
+                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
                </div>
-            </button>
+            </Link>
           )}
           <button 
             onClick={handleLogout} 
             title={isSidebarCollapsed ? "Encerrar Sessão" : ""}
-            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-4'} gap-4 py-4 text-sm font-bold text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded-2xl transition-colors group`}
+            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-3.5'} gap-3.5 py-3 text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-950/30 rounded-2xl transition-all group border border-transparent hover:border-red-900/40`}
           >
-            <LogOut className="w-5 h-5 shrink-0 text-slate-500 group-hover:text-red-400 transition-colors" />
-            {!isSidebarCollapsed && <span className="whitespace-nowrap">Encerrar Sessão</span>}
+            <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 group-hover:bg-red-600 group-hover:text-white transition-all shrink-0 border border-red-500/20">
+              <LogOut className="w-4.5 h-4.5" />
+            </div>
+            {!isSidebarCollapsed && <span className="whitespace-nowrap font-black text-slate-300 group-hover:text-red-400">Encerrar Sessão</span>}
           </button>
         </div>
       </aside>
@@ -151,22 +212,36 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex-1 flex flex-col overflow-y-auto print:overflow-visible relative print:block">
 
         {/* ── NEW TOP HEADER (Branding & Minimalist Focus — Mobile Only) ─────── */}
-        <header className="md:hidden ios-header sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100/80 px-4 py-3 flex items-center justify-between transition-all">
-          {/* Lado Esquerdo: Marca Vitality AI com gradiente e ícone Sparkles */}
-          <button 
-            onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-2 text-left group active:opacity-75 transition-opacity"
-          >
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-xs">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-500 bg-clip-text text-transparent font-bold text-lg tracking-tight">
-              Vitality AI
-            </span>
-          </button>
+        <header className="md:hidden ios-header sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100/80 px-4 py-3 flex items-center justify-between transition-all">
+          {/* Lado Esquerdo: Marca Vitality AI interativa + Logo da Instituição */}
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => router.push("/dashboard")}
+              className="flex items-center gap-2 text-left group active:opacity-75 transition-opacity"
+            >
+              <div className="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md">
+                <Sparkles className="w-4 h-4 text-white animate-pulse" />
+              </div>
+              <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent font-black text-lg tracking-tight animate-shimmer-text">
+                Vitality AI
+              </span>
+            </button>
+          </div>
 
-          {/* Lado Direito: Avatar Squircle (Abre o menu popover do perfil) */}
-          <div className="flex items-center gap-2">
+          {/* Lado Direito: Logo da Instituição + Avatar do Cuidador */}
+          <div className="flex items-center gap-2.5">
+            {/* Logo da Instituição no Mobile Header */}
+            <div
+              onClick={() => role === "Admin" && router.push("/instituicao")}
+              className="h-8 w-8 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 shadow-xs cursor-pointer"
+              title={instNome}
+            >
+              {instLogoUrl ? (
+                <img src={instLogoUrl} alt={instNome} className="h-full w-full object-cover" />
+              ) : (
+                <Building2 className="h-4 w-4 text-blue-600" />
+              )}
+            </div>
             <button
               onClick={() => setIsProfileMenuOpen((prev) => !prev)}
               className="w-9 h-9 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-semibold text-xs shadow-xs active:scale-95 transition-transform"
@@ -176,7 +251,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {fotoUrl ? (
                 <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
               ) : (
-                userName.charAt(0).toUpperCase()
+                <User className="w-5 h-5 text-white" />
               )}
             </button>
           </div>
@@ -194,7 +269,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     {fotoUrl ? (
                       <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
                     ) : (
-                      userName.charAt(0).toUpperCase()
+                      <User className="w-5 h-5 text-white" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -255,16 +330,33 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           )}
         </header>
 
-        {/* ── DESKTOP NAVBAR — unchanged, hidden on mobile ──────── */}
-        <nav className="sticky top-0 z-10 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 px-6 py-4 transition-all hidden md:flex justify-end items-center print:hidden">
+        {/* ── DESKTOP NAVBAR — Topo com Logo da Instituição & Ações ──────── */}
+        <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-3.5 transition-all hidden md:flex justify-between items-center print:hidden">
+          {/* Badge da Instituição Ativa no topo desktop */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/80 rounded-2xl px-3.5 py-1.5 shadow-2xs">
+              <div className="h-7 w-7 rounded-lg overflow-hidden bg-white flex items-center justify-center border border-slate-200 text-blue-600 shrink-0">
+                {instLogoUrl ? (
+                  <img src={instLogoUrl} alt={instNome} className="h-full w-full object-cover" />
+                ) : (
+                  <Building2 className="h-4 w-4" />
+                )}
+              </div>
+              <div>
+                <span className="text-xs font-extrabold text-slate-900 block leading-tight">{instNome}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Unidade Ativa</span>
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-4">
             {(pathname === "/pacientes" || pathname.startsWith("/pacientes/")) && (
-              <button 
-                onClick={irParaCadastroPaciente}
+              <Link 
+                href="/pacientes/novo"
                 className="px-6 py-3 bg-blue-600 text-white text-sm font-black rounded-full hover:bg-blue-700 hover:-translate-y-0.5 shadow-lg shadow-blue-600/30 transition-all active:scale-95 hidden sm:flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" /> Novo Paciente
-              </button>
+              </Link>
             )}
           </div>
         </nav>
@@ -284,9 +376,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             const active = isActivePath(tab.path);
             const Icon = tab.icon;
             return (
-              <button
+              <Link
                 key={tab.path}
-                onClick={() => router.push(tab.path)}
+                href={tab.path}
                 className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] flex-1 ios-press relative"
               >
                 <Icon
@@ -296,8 +388,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   strokeWidth={active ? 2.5 : 1.8}
                 />
                 <span
-                  className={`text-[10px] leading-tight font-semibold transition-colors duration-200 ${
-                    active ? "text-blue-600 font-bold" : "text-slate-400"
+                  className={`text-[10px] font-extrabold tracking-tight transition-colors duration-200 ${
+                    active ? "text-blue-600 font-black" : "text-slate-400 font-bold"
                   }`}
                 >
                   {tab.label}
@@ -306,7 +398,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 {active && (
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] w-5 rounded-full bg-blue-600" />
                 )}
-              </button>
+              </Link>
             );
           })}
         </div>

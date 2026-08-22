@@ -20,7 +20,7 @@ import {
 import DashboardLayout from "../components/DashboardLayout";
 import FotoUpload from "../components/FotoUpload";
 import { auth, db } from "../../lib/firebase";
-import { useInstitucaoId, useCuidadorData } from "../../lib/hooks";
+import { useInstitucaoId, useCuidadorData, useInstitucaoData } from "../../lib/hooks";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 
@@ -57,6 +57,7 @@ export default function PerfilPage() {
   const router = useRouter();
   const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
   const { cuidador, loading: loadingCuidador } = useCuidadorData();
+  const { instituicao } = useInstitucaoData();
 
   // Autenticação & Carga Inicial
   useEffect(() => {
@@ -338,8 +339,12 @@ export default function PerfilPage() {
           {/* SEÇÃO 3: CARD INSTITUIÇÃO & INFORMAÇÕES */}
           <section className="rounded-[2.5rem] border border-blue-100 bg-gradient-to-br from-blue-50/60 to-indigo-50/40 p-6 md:p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md">
-                <Building2 className="h-5 w-5" />
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-blue-600 text-white shadow-md border border-blue-400/30 shrink-0">
+                {instituicao?.logotipoUrl ? (
+                  <img src={instituicao.logotipoUrl} alt={instituicao.nome} className="h-full w-full object-cover" />
+                ) : (
+                  <Building2 className="h-6 w-6" />
+                )}
               </div>
               <div>
                 <h3 className="text-sm font-black uppercase tracking-wider text-blue-950">Instituição Ativa</h3>
@@ -348,9 +353,11 @@ export default function PerfilPage() {
             </div>
 
             <div className="rounded-2xl bg-white/90 p-5 border border-blue-100/80 shadow-xs space-y-3">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Nome da Instituição</p>
-                <p className="text-base font-black text-slate-900">{nomeInstituicao || "Instituição Vitalidade"}</p>
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Nome da Instituição</p>
+                  <p className="text-base font-black text-slate-900 truncate">{instituicao?.nome || nomeInstituicao || "Instituição Vitalidade"}</p>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
@@ -360,7 +367,17 @@ export default function PerfilPage() {
                     {role === "Admin" ? "Administrador" : "Cuidador"}
                   </span>
                 </div>
-                <Shield className="h-7 w-7 text-blue-500 opacity-80" />
+                {role === "Admin" ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/instituicao")}
+                    className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-black shadow-md transition-all hover:-translate-y-0.5 active:scale-95"
+                  >
+                    Personalizar Instituição →
+                  </button>
+                ) : (
+                  <Shield className="h-7 w-7 text-blue-500 opacity-80" />
+                )}
               </div>
             </div>
           </section>
