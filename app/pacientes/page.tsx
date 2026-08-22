@@ -15,6 +15,7 @@ interface Paciente {
   id: string;
   nome: string;
   idade: string;
+  fotoUrl?: string;
   statusSeguranca: string;
 }
 
@@ -184,9 +185,13 @@ export default function ProntuariosPage() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
                   
-                  <div className="relative z-10 flex w-full items-start justify-between gap-4 mb-6">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.25rem] bg-slate-50 text-2xl font-black text-slate-500 shadow-sm shadow-slate-200/50 transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-blue-200">
-                      {paciente.nome.charAt(0)}
+                  <div className="flex items-start justify-between gap-4 mb-6">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-slate-50 text-2xl font-black text-slate-500 shadow-sm shadow-slate-200/50 transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-blue-200">
+                      {paciente.fotoUrl ? (
+                        <img src={paciente.fotoUrl} alt={`Foto de ${paciente.nome}`} className="h-full w-full object-cover" />
+                      ) : (
+                        paciente.nome.charAt(0)
+                      )}
                     </div>
                     <span
                       className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${getStatusColor(

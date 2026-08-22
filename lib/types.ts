@@ -9,6 +9,7 @@ export interface Paciente {
   id: string;
   nome: string;
   idade: string;
+  fotoUrl?: string;
   statusSeguranca: string;
 }
 

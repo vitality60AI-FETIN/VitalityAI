@@ -827,8 +827,8 @@ export default function DashboardLobby() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-800 font-black text-sm shadow-sm border border-slate-100">
-                                {alerta.pacienteNome.charAt(0)}
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white text-slate-800 font-black text-sm shadow-sm border border-slate-100">
+                                {(() => { const fUrl = (pacientesComStatus.find(p => p.id === alerta.pacienteId) as any)?.fotoUrl; return fUrl ? <img src={fUrl} alt="" className="h-full w-full object-cover" /> : alerta.pacienteNome.charAt(0); })()}
                               </div>
                               <div className="min-w-0">
                                 <p className="text-xs font-extrabold text-slate-900 truncate">
@@ -934,8 +934,12 @@ export default function DashboardLobby() {
                       onClick={() => setExpandedPatientId(isExpanded ? null : paciente.id)}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 font-black text-lg">
-                          {paciente.nome.charAt(0)}
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-blue-50 text-blue-700 font-black text-lg">
+                          {(paciente as any).fotoUrl ? (
+                            <img src={(paciente as any).fotoUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            paciente.nome.charAt(0)
+                          )}
                         </div>
                         <div className="min-w-0">
                           <h3 className="text-base font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { doc, setDoc, addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import FotoUpload from "../components/FotoUpload";
 
 type Step = "instituicao" | "perfil" | "termos";
 type TipoInstituicao = "criar" | "entrar";
@@ -35,6 +36,7 @@ export default function Onboarding() {
   const [dataNascimento, setDataNascimento] = useState("");
   const [tipo, setTipo] = useState("Profissional");
   const [whatsapp, setWhatsapp] = useState("");
+  const [fotoUrl, setFotoUrl] = useState("");
 
   // Termos LGPD
   const [aceitouTermos, setAceitouTermos] = useState(false);
@@ -179,6 +181,7 @@ export default function Onboarding() {
         dataNascimento: dataNascimento,
         tipoCuidador: tipo,
         whatsapp: whatsapp,
+        fotoUrl: fotoUrl,
         email: user.email,
         instituicaoId: instituicaoId, // ← MULTI-TENANCY!
         // Definir papel: se criou a instituição, torna-se Admin
@@ -391,6 +394,17 @@ export default function Onboarding() {
         {/* PASSO 2: Perfil do Cuidador */}
         {step === "perfil" && (
           <form onSubmit={handleGoToTermos} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Upload de Foto do Cuidador */}
+            <div className="md:col-span-2 flex justify-center mb-2">
+              <FotoUpload
+                currentUrl={fotoUrl || undefined}
+                onUpload={(url) => setFotoUrl(url)}
+                size={104}
+                label="Sua Foto de Perfil"
+                fallbackName={nome}
+              />
+            </div>
+
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
                 Nome Completo

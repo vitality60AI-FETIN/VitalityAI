@@ -27,12 +27,14 @@ interface Membro {
   email: string;
   role: string;
   tipoCuidador: string;
+  fotoUrl?: string;
 }
 
 interface Paciente {
   id: string;
   nome: string;
   idade: string;
+  fotoUrl?: string;
   statusSeguranca: string;
 }
 
@@ -221,8 +223,12 @@ export default function EquipePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                 {membros.map((membro) => (
                   <div key={membro.id} className="group rounded-2xl md:rounded-[2rem] border border-slate-200/80 bg-white p-4 md:p-5 shadow-sm shadow-slate-100/50 flex items-center gap-4 md:gap-5 transition-all duration-300 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1 ios-press">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-slate-50 text-xl font-black text-slate-500 transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                      {membro.nomeCompleto?.charAt(0) || "U"}
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-slate-50 text-xl font-black text-slate-500 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                      {membro.fotoUrl ? (
+                        <img src={membro.fotoUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        membro.nomeCompleto?.charAt(0) || "U"
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-bold text-slate-900 truncate transition-colors group-hover:text-blue-700">{membro.nomeCompleto || "Sem Nome"}</p>
@@ -275,8 +281,12 @@ export default function EquipePage() {
                   {pacientes.map((paciente) => (
                     <div key={paciente.id} className="group rounded-2xl md:rounded-[2rem] border border-slate-200/80 bg-white p-4 md:p-5 shadow-sm shadow-slate-100/50 flex items-center justify-between gap-4 transition-all duration-300 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-900/5 hover:-translate-y-1 ios-press">
                       <div className="flex items-center gap-4 min-w-0">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-slate-50 text-xl font-black text-slate-500 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
-                          {paciente.nome?.charAt(0) || "P"}
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-slate-50 text-xl font-black text-slate-500 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                          {paciente.fotoUrl ? (
+                            <img src={paciente.fotoUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            paciente.nome?.charAt(0) || "P"
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="text-base font-bold text-slate-900 truncate transition-colors group-hover:text-indigo-700">{paciente.nome}</p>

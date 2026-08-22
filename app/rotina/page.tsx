@@ -36,6 +36,7 @@ interface Paciente {
   id: string;
   nome: string;
   idade: string;
+  fotoUrl?: string;
   statusSeguranca: string;
 }
 
@@ -421,8 +422,12 @@ export default function LogRotinaPage() {
                       onClick={() => setExpanded((s) => ({ ...s, [paciente.id]: !s[paciente.id] }))}
                     >
                       <div className="flex items-center gap-3 md:gap-4 min-w-0">
-                        <div className="flex h-11 w-11 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-xl md:rounded-2xl bg-blue-50 text-blue-700 font-black text-lg md:text-xl shadow-sm">
-                          {paciente.nome.charAt(0)}
+                        <div className="flex h-11 w-11 md:h-14 md:w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl md:rounded-2xl bg-blue-50 text-blue-700 font-black text-lg md:text-xl shadow-sm">
+                          {paciente.fotoUrl ? (
+                            <img src={paciente.fotoUrl} alt={paciente.nome} className="h-full w-full object-cover" />
+                          ) : (
+                            paciente.nome.charAt(0)
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="text-base md:text-lg font-black text-slate-900 tracking-tight truncate group-hover/patient:text-blue-600 transition-colors">

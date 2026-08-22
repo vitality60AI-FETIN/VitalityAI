@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import FotoUpload from "./FotoUpload";
 
 export interface PacienteFormData {
   nome: string;
@@ -77,7 +78,7 @@ export default function PacienteForm({
   submitButtonText = "Salvar Dados",
   initialData,
   title = "Nova Anamnese Digital",
-  description = "Preencha os dados de saúde do idoso. Essas informações alimentam nossa IA Adaptativa."
+  description = "Preencha os dados de saúde do idoso. Essas informações alimentam nossa IA Adaptativa.",
 }: PacienteFormProps) {
   const [form, setForm] = useState<PacienteFormData>({
     nome: initialData?.nome || "",
@@ -95,7 +96,6 @@ export default function PacienteForm({
 
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  // photo upload removed per request
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -169,6 +169,18 @@ export default function PacienteForm({
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">1</span>
           Identificação & Biometria
         </h2>
+
+        {/* Upload de Foto do Paciente */}
+        <div className="flex justify-center mb-8">
+          <FotoUpload
+            currentUrl={form.fotoUrl || undefined}
+            onUpload={(url) => setForm((prev) => ({ ...prev, fotoUrl: url }))}
+            size={112}
+            label="Foto do Residente"
+            fallbackName={form.nome}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Nome */}
           <div className="md:col-span-2">

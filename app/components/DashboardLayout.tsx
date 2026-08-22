@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { auth } from "../../lib/firebase";
-import { useInstitucaoId } from "../../lib/hooks";
+import { useInstitucaoId, useCuidadorData } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 interface DashboardLayoutProps {
@@ -18,6 +18,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { role } = useInstitucaoId();
+  const { cuidador } = useCuidadorData();
+  const fotoUrl = (cuidador as any)?.fotoUrl || null;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -114,8 +116,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="p-4 border-t border-white/5">
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-4 px-4 py-3.5 bg-slate-900 rounded-[1.25rem] mb-3 border border-slate-800/50">
-               <div className="h-10 w-10 rounded-[1rem] bg-blue-900/40 flex items-center justify-center text-blue-400 font-black uppercase shrink-0 border border-blue-800/30 shadow-inner">
-                  {userName.charAt(0)}
+               <div className="h-10 w-10 rounded-[1rem] overflow-hidden bg-blue-900/40 flex items-center justify-center text-blue-400 font-black uppercase shrink-0 border border-blue-800/30 shadow-inner">
+                  {fotoUrl ? (
+                    <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+                  ) : (
+                    userName.charAt(0)
+                  )}
                </div>
                <div className="truncate text-left flex-1">
                  <p className="text-sm font-black text-white truncate">{userName}</p>
@@ -158,11 +164,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-              className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-semibold text-xs shadow-xs active:scale-95 transition-transform"
+              className="w-9 h-9 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-semibold text-xs shadow-xs active:scale-95 transition-transform"
               aria-label="Menu do Perfil"
               title="Menu do Perfil"
             >
-              {userName.charAt(0).toUpperCase()}
+              {fotoUrl ? (
+                <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+              ) : (
+                userName.charAt(0).toUpperCase()
+              )}
             </button>
           </div>
 
@@ -175,8 +185,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               />
               <div className="absolute right-4 top-12 z-50 w-72 rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 md:hidden">
                 <div className="flex items-center gap-3 p-2 pb-3 border-b border-slate-100">
-                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-sm font-semibold shadow-xs">
-                    {userName.charAt(0).toUpperCase()}
+                  <div className="h-10 w-10 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-sm font-semibold shadow-xs">
+                    {fotoUrl ? (
+                      <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+                    ) : (
+                      userName.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-900 truncate">{userName}</p>
