@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "./firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { CuidadorData } from "./types";
 
 /**
@@ -57,35 +57,45 @@ export function useInstitucaoId() {
 }
 
 /**
- * Hook para pegar dados completos do cuidador logado
+ * Hook para pegar dados completos do cuidador logado com atualização em tempo real
  */
 export function useCuidadorData() {
   const [cuidador, setCuidador] = useState<CuidadorData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    let unsubDoc: (() => void) | null = null;
+
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (!user) {
         setCuidador(null);
         setLoading(false);
+        if (unsubDoc) unsubDoc();
         return;
       }
 
-      try {
-        const cuidadorRef = doc(db, "Cuidadores", user.uid);
-        const cuidadorSnap = await getDoc(cuidadorRef);
-
-        if (cuidadorSnap.exists()) {
-          setCuidador({ id: user.uid, ...cuidadorSnap.data() });
+      const cuidadorRef = doc(db, "Cuidadores", user.uid);
+      unsubDoc = onSnapshot(
+        cuidadorRef,
+        (snap) => {
+          if (snap.exists()) {
+            setCuidador({ id: user.uid, ...snap.data() } as CuidadorData);
+          } else {
+            setCuidador(null);
+          }
+          setLoading(false);
+        },
+        (err) => {
+          console.error("Erro realtime cuidador:", err);
+          setLoading(false);
         }
-      } catch (err) {
-        console.error("Erro ao carregar cuidador:", err);
-      } finally {
-        setLoading(false);
-      }
+      );
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubDoc) unsubDoc();
+    };
   }, []);
 
   return { cuidador, loading };

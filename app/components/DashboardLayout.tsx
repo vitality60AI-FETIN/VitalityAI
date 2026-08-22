@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, ChevronLeft, ChevronRight, Sparkles, User } from "lucide-react";
 import { auth } from "../../lib/firebase";
 import { useInstitucaoId, useCuidadorData } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -31,7 +31,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     });
     return () => unsubscribe();
   }, [router]);
-
+  const displayName = cuidador?.nomeCompleto || cuidador?.nome || userName;
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/");
@@ -47,6 +47,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Log de Rotina", path: "/rotina", icon: Activity },
     { name: "Insights IA", path: "/insights", icon: Brain },
     ...(role === "Admin" ? [{ name: "Equipe", path: "/equipe", icon: Users }] : []),
+    { name: "Meu Perfil", path: "/perfil", icon: User },
   ];
 
   // ── Tab labels compactos para a Tab Bar iOS mobile ──
@@ -115,19 +116,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* User Profile & Logout at the bottom */}
         <div className="p-4 border-t border-white/5">
           {!isSidebarCollapsed && (
-            <div className="flex items-center gap-4 px-4 py-3.5 bg-slate-900 rounded-[1.25rem] mb-3 border border-slate-800/50">
-               <div className="h-10 w-10 rounded-[1rem] overflow-hidden bg-blue-900/40 flex items-center justify-center text-blue-400 font-black uppercase shrink-0 border border-blue-800/30 shadow-inner">
+            <button
+              onClick={() => router.push("/perfil")}
+              className="w-full flex items-center gap-4 px-4 py-3.5 bg-slate-900 hover:bg-slate-800 rounded-[1.25rem] mb-3 border border-slate-800/50 text-left transition-colors group cursor-pointer"
+              title="Acessar Meu Perfil"
+            >
+               <div className="h-10 w-10 rounded-[1rem] overflow-hidden bg-blue-900/40 flex items-center justify-center text-blue-400 font-black uppercase shrink-0 border border-blue-800/30 shadow-inner group-hover:border-blue-500">
                   {fotoUrl ? (
                     <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
                   ) : (
-                    userName.charAt(0)
+                    displayName.charAt(0)
                   )}
                </div>
                <div className="truncate text-left flex-1">
-                 <p className="text-sm font-black text-white truncate">{userName}</p>
+                 <p className="text-sm font-black text-white truncate group-hover:text-blue-400 transition-colors">{displayName}</p>
                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mt-0.5">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
                </div>
-            </div>
+            </button>
           )}
           <button 
             onClick={handleLogout} 
@@ -193,7 +198,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 truncate">{userName}</p>
+                    <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
                     <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-600 mt-0.5">
                       {role === "Admin" ? "Administrador" : "Cuidador"}
                     </span>
@@ -210,6 +215,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   >
                     <LayoutDashboard className="h-4 w-4 text-blue-600" />
                     Ir para o Painel Geral
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      router.push("/perfil");
+                      setIsProfileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                  >
+                    <User className="h-4 w-4 text-blue-600" />
+                    Meu Perfil
                   </button>
 
                   <button

@@ -17,9 +17,15 @@ export interface Paciente {
 export interface CuidadorData {
   id: string;
   nome?: string;
+  nomeCompleto?: string;
   email?: string;
   role?: string;
   instituicaoId?: string;
+  fotoUrl?: string;
+  whatsapp?: string;
+  tipoCuidador?: string;
+  cpf?: string;
+  dataNascimento?: string;
 }
 
 // ─── Insights History ───
