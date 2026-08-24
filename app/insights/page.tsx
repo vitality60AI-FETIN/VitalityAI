@@ -16,7 +16,7 @@ import {
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
-import { useInstitucaoId } from "../../lib/hooks";
+import { useInstitucaoId, useInstitucaoData } from "../../lib/hooks";
 import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
 import { Paciente, InsightHistoryItem } from "../../lib/types";
 
@@ -33,6 +33,7 @@ export default function InsightsPage() {
 
   const router = useRouter();
   const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
+  const { instituicao } = useInstitucaoData();
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -126,7 +127,9 @@ export default function InsightsPage() {
           prompt, 
           mode: "chat",
           patients: pacientes,
-          logs: sortedLogs.slice(0, 100)
+          logs: sortedLogs.slice(0, 100),
+          instituicaoId,
+          instituicaoNome: (instituicao as any)?.nome || null
         }),
       });
 

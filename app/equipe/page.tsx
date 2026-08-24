@@ -194,27 +194,27 @@ export default function EquipePage() {
 
           <div className="flex flex-col gap-6">
             
-            {/* Invite Section */}
-            <section className="relative overflow-hidden rounded-3xl md:rounded-[2.5rem] border border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-5 md:p-8 shadow-sm shadow-blue-100/50 transition-all hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
+            {/* Invite Section — Apple Glass Card */}
+            <section className="apple-card relative overflow-hidden rounded-3xl md:rounded-[2.5rem] bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/40 p-5 md:p-8">
               <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                   <h3 className="text-2xl font-black tracking-tight text-blue-950 flex items-center gap-3">
                     <KeyRound className="h-7 w-7 text-blue-600" />
-                    Código de Convite
+                    Código de Convite da Unidade
                   </h3>
                   <p className="text-base text-blue-700/80 mt-2 max-w-lg leading-relaxed">
                     Compartilhe este código com os novos cuidadores. Eles deverão informá-lo na etapa "Entrar em Instituição" durante o cadastro.
                   </p>
                 </div>
                 
-                <div className="flex items-center gap-3 bg-white p-2.5 rounded-[1.5rem] border border-blue-100 shadow-sm self-start md:self-center transition-all hover:shadow-md hover:border-blue-200">
-                  <div className="px-5 py-3 bg-slate-50/80 rounded-[1.25rem] border border-slate-100/80">
-                    <span className="font-black text-slate-800 tracking-[0.3em] font-mono text-xl">{codigoConvite}</span>
+                <div className="flex items-center gap-3 bg-white/90 backdrop-blur-md p-2.5 rounded-2xl border border-blue-100 shadow-sm self-start md:self-center transition-all hover:shadow-md hover:border-blue-200">
+                  <div className="px-5 py-3 bg-slate-50/80 rounded-xl border border-slate-100">
+                    <span className="font-black text-slate-900 tracking-[0.3em] font-mono text-xl">{codigoConvite}</span>
                   </div>
                   <button 
                     onClick={copiarCodigo}
-                    className="group flex items-center gap-2 px-5 py-3.5 min-h-[44px] bg-blue-600 text-white font-bold rounded-[1.25rem] hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/30 transition-all hover:-translate-y-0.5 ios-press"
+                    className="apple-button group flex items-center gap-2 px-5 py-3.5 min-h-[44px] bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-600/20"
                   >
                     {copied ? <CheckCircle2 className="h-5 w-5" /> : <Copy className="h-5 w-5 transition-transform group-hover:scale-110" />}
                     {copied ? "Copiado!" : "Copiar Código"}
@@ -226,13 +226,13 @@ export default function EquipePage() {
             {/* Team List Section */}
             <section className="mt-6">
               <h3 className="text-xl font-black tracking-tight text-slate-800 mb-6 flex items-center gap-2">
-                <Users className="h-6 w-6 text-blue-500" />
+                <Users className="h-6 w-6 text-blue-600" />
                 Membros da Instituição ({membros.length})
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                 {membros.map((membro) => (
-                  <div key={membro.id} className="group rounded-2xl md:rounded-[2rem] border border-slate-200/80 bg-white p-4 md:p-5 shadow-sm shadow-slate-100/50 flex items-center gap-4 md:gap-5 transition-all duration-300 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1 ios-press">
+                  <div key={membro.id} className="apple-card group rounded-2xl md:rounded-[2rem] p-4 md:p-5 flex items-center gap-4 md:gap-5 apple-button cursor-default">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.25rem] bg-slate-50 text-xl font-black text-slate-500 transition-colors group-hover:bg-blue-600 group-hover:text-white">
                       {membro.fotoUrl ? (
                         <img src={membro.fotoUrl} alt="" className="h-full w-full object-cover" />

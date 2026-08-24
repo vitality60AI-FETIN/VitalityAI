@@ -88,4 +88,63 @@
 
 .animate-pulse-border {
   animation: pulseBorder 3s ease-in-out infinite;
-}
+}
+
+/* ── Apple HIG Aesthetic & Interactivity Utilities ────────────────── */
+.apple-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04), 0 4px 12px -4px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(147, 197, 253, 0.9);
+  box-shadow: 0 20px 40px -15px rgba(59, 130, 246, 0.12), 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.apple-glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.apple-button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.apple-button:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+.apple-chip-spring {
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.apple-chip-spring:active {
+  transform: scale(0.95);
+}
+
+/* ── Custom Sleek Apple Scrollbar ─────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(203, 213, 225, 0.6);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.8);
+}
+

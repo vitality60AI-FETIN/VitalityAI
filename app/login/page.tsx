@@ -101,28 +101,28 @@ export default function LoginPage() {
       <div className="flex w-full lg:w-2/5 flex-col items-center justify-center p-8 bg-slate-50">
         <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700">
           
-          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200/60 p-10 relative overflow-hidden">
+          <div className="apple-card rounded-[2.5rem] p-10 relative overflow-hidden">
             
             <div className="mb-10 text-center">
-              <h2 className="text-3xl font-extrabold text-slate-800 mb-2">
-                Bem-vindo
+              <h2 className="text-3xl font-black text-slate-900 mb-2">
+                Bem-vindo ao Vitality AI
               </h2>
-              <p className="text-slate-600 font-normal">
-                Acesse o painel do cuidador.
+              <p className="text-slate-500 font-semibold text-sm">
+                Acesse a plataforma assistencial com sua Conta Google.
               </p>
             </div>
 
             {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 text-sm font-semibold border border-red-100">
+              <div className="bg-rose-50 text-rose-700 p-4 rounded-2xl mb-6 text-xs font-bold border border-rose-200">
                 ⚠️ {error}
               </div>
             )}
 
-            {/* Botão Google Sign-In */}
+            {/* Botão Google Sign-In Apple HIG Style */}
             <button
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 p-4 rounded-2xl font-bold text-lg shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="apple-button w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200/90 text-slate-800 p-4 rounded-2xl font-black text-base shadow-sm hover:bg-slate-50 hover:border-blue-400 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600" />

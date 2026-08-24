@@ -621,79 +621,79 @@ export default function DashboardLobby() {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* SEÇÃO 1: MÉTRICAS & INDICADORES CHAVE (CARDS DE RESUMO) */}
+          {/* SEÇÃO 1: MÉTRICAS & INDICADORES CHAVE (CARDS DE RESUMO APPLE HIG) */}
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
             {/* Card 1: Total de Residentes */}
-            <div className="group rounded-3xl border border-slate-200/80 bg-white p-4 md:p-6 shadow-sm shadow-slate-200/50 hover:border-blue-300 hover:shadow-lg transition-all ios-press">
+            <div className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-default">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Monitorado</p>
-                  <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Total Monitorado</p>
+                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900">
                     {pacientes.length}
                   </h3>
-                  <p className="mt-1 text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    100% ativos na instituição
+                  <p className="mt-1.5 text-xs font-bold text-emerald-600 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    100% ativos na unidade
                   </p>
                 </div>
-                <div className="rounded-2xl bg-blue-50 p-3 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                <div className="rounded-2xl bg-blue-50/90 p-3 text-blue-600 transition-all duration-300 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white shadow-xs">
                   <Users className="h-6 w-6" />
                 </div>
               </div>
             </div>
 
             {/* Card 2: Requerem Atenção Prioritária */}
-            <div className="group rounded-3xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 to-white p-4 md:p-6 shadow-sm shadow-amber-100/50 hover:border-amber-400 hover:shadow-lg transition-all ios-press">
+            <div className="apple-card group rounded-3xl border-amber-200/80 bg-gradient-to-br from-amber-50/50 via-white to-white p-4 md:p-6 apple-button cursor-default">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-amber-700">Atenção Prioritária</p>
-                  <h3 className="mt-2 text-3xl font-black tracking-tight text-amber-900">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-amber-700">Atenção Prioritária</p>
+                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-amber-900">
                     {pacientesAtencao.length}
                   </h3>
-                  <p className="mt-1 text-xs font-semibold text-amber-600">
+                  <p className="mt-1.5 text-xs font-bold text-amber-600">
                     {pacientesAtencao.length > 0 ? "Exigem checagem no turno" : "Todos em estado seguro"}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-amber-100 p-3 text-amber-700 transition-colors group-hover:bg-amber-500 group-hover:text-white">
+                <div className="rounded-2xl bg-amber-100/80 p-3 text-amber-700 transition-all duration-300 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white shadow-xs">
                   <AlertTriangle className="h-6 w-6" />
                 </div>
               </div>
             </div>
 
             {/* Card 3: Progresso do Turno */}
-            <div className="group rounded-3xl border border-slate-200/80 bg-white p-4 md:p-6 shadow-sm shadow-slate-200/50 hover:border-indigo-300 hover:shadow-lg transition-all ios-press">
+            <div className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-default">
               <div className="flex items-start justify-between">
                 <div className="w-full">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Rotinas do Turno</p>
-                  <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Rotinas do Turno</p>
+                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900">
                     {concluidasCount} <span className="text-lg font-bold text-slate-400">/ {totalTarefas}</span>
                   </h3>
-                  <div className="mt-3 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div className="mt-3 w-full bg-slate-100/80 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200/50">
                     <div
-                      className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
+                      className="bg-gradient-to-r from-indigo-500 to-blue-600 h-1.5 rounded-full transition-all duration-700 ease-out shadow-xs"
                       style={{ width: `${progressoPercent}%` }}
                     />
                   </div>
                 </div>
-                <div className="rounded-2xl bg-indigo-50 p-3 text-indigo-600 ml-3 transition-colors group-hover:bg-indigo-600 group-hover:text-white shrink-0">
+                <div className="rounded-2xl bg-indigo-50/90 p-3 text-indigo-600 ml-3 transition-all duration-300 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white shrink-0 shadow-xs">
                   <Clock className="h-6 w-6" />
                 </div>
               </div>
             </div>
 
             {/* Card 4: Ocorrências / Incidentes 24h */}
-            <div className="group rounded-3xl border border-slate-200/80 bg-white p-4 md:p-6 shadow-sm shadow-slate-200/50 hover:border-rose-300 hover:shadow-lg transition-all ios-press">
+            <div className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-default">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Registros 24h</p>
-                  <h3 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Registros 24h</p>
+                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900">
                     {incidentesHoje}
                   </h3>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                  <p className="mt-1.5 text-xs font-bold text-slate-500">
                     Entradas de rotina e alertas
                   </p>
                 </div>
-                <div className="rounded-2xl bg-rose-50 p-3 text-rose-600 transition-colors group-hover:bg-rose-600 group-hover:text-white">
+                <div className="rounded-2xl bg-rose-50/90 p-3 text-rose-600 transition-all duration-300 group-hover:scale-110 group-hover:bg-rose-600 group-hover:text-white shadow-xs">
                   <Activity className="h-6 w-6" />
                 </div>
               </div>

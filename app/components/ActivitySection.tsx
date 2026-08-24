@@ -167,8 +167,8 @@ export default function ActivitySection({
         </div>
       </div>
 
-      {/* Grid Flex de Chips sem Corte de Texto */}
-      <div className="flex flex-wrap gap-2">
+      {/* Grid Flex de Chips sem Corte de Texto — Apple HIG Spring Style */}
+      <div className="flex flex-wrap gap-2.5">
         {config.options.map((option) => {
           const isSelected = selectedList.includes(option.value);
           const isSemIntercorrencia = option.value === "Sem intercorrências";
@@ -179,26 +179,26 @@ export default function ActivitySection({
             option.value === "Nenhuma";
 
           const activeStyle = isSemIntercorrencia
-            ? "border-emerald-500 bg-emerald-600 text-white shadow-md shadow-emerald-600/25"
+            ? "border-emerald-500 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 scale-[1.02]"
             : isNegative
-            ? "border-amber-400 bg-amber-500 text-white shadow-md shadow-amber-500/20"
-            : "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/25";
+            ? "border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20 scale-[1.02]"
+            : "border-blue-600 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/25 scale-[1.02]";
 
-          const inactiveStyle = `border-slate-200/80 ${config.bgColor} ${config.textColor} ${config.hoverColor} hover:border-slate-300`;
+          const inactiveStyle = `border-slate-200/80 ${config.bgColor} ${config.textColor} ${config.hoverColor} hover:border-slate-300 hover:shadow-xs`;
 
           return (
             <button
               key={option.value}
               type="button"
               onClick={() => handleToggleOption(option.value)}
-              className={`flex items-center gap-2 rounded-xl md:rounded-2xl border px-3.5 md:px-4 py-3 text-xs md:text-sm font-bold transition-all duration-150 touch-manipulation select-none cursor-pointer active:scale-[0.97] min-h-[44px] ${
+              className={`apple-chip-spring flex items-center gap-2.5 rounded-xl md:rounded-2xl border px-3.5 md:px-4 py-3 text-xs md:text-sm font-bold transition-all duration-200 touch-manipulation select-none cursor-pointer min-h-[44px] ${
                 isSelected ? activeStyle : inactiveStyle
               }`}
             >
               <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all pointer-events-none ${
+                className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border transition-all duration-300 pointer-events-none ${
                   isSelected
-                    ? "border-white bg-white text-blue-700"
+                    ? "border-white bg-white text-blue-700 shadow-xs scale-110"
                     : "border-current opacity-40"
                 }`}
               >

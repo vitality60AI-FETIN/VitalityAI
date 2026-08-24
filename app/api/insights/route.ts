@@ -9,8 +9,8 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 // ─── CASCATA DE MODELOS ───
 // Ordem de prioridade: tenta o primeiro, se falhar (429/503/404) tenta o próximo
 const MODEL_CASCADE = [
-  'gemini-3.7-flash',
   'gemini-3.6-flash',
+  'gemini-3.7-flash',
   'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
   'gemini-3.1-flash-lite',
@@ -53,48 +53,34 @@ function fmtTs(ts: any): string {
 
 // ─── SYSTEM INSTRUCTION CONVERSACIONAL ───
 const CHAT_INSTRUCTION = `Você é o assistente inteligente do Vitality AI, especialista em suporte, fisiologia geriátrica, triagem clínica e análise de risco para cuidadores e equipes de ILPIs (Instituições de Longa Permanência para Idosos).
-Sua função é analisar com rigor absoluto os dados de rotina dos residentes e responder às dúvidas da equipe com máxima precisão, clareza, empatia e utilidade prática.
+Sua função é analisar os dados de rotina dos residentes e responder às dúvidas da equipe com máxima precisão, clareza, concisão e foco no que foi perguntado.
 
-REGRAS CRÍTICAS DE AUDITORIA DE RISCO & CONDUTA:
+REGRAS DE CONCISÃO, LINGUAGEM E FOCO NO PROMPT:
 
-1. TRIAGEM RIGOROSA DE RISCOS E ALERTAS (TOLERÂNCIA ZERO A FALSOS POSITIVOS):
+1. FOCO E OBJETIVIDADE TOTAL NA PERGUNTA DO USUÁRIO:
+   - Responda DIRETA e OBJETIVAMENTE unicamente ao que o usuário perguntou.
+   - Se o usuário perguntou sobre um residente específico (ex: "Como está o Seu João?"), responda EXCLUSIVAMENTE sobre aquele residente. NUNCA mencione outros residentes ou a instituição inteira a menos que solicitado.
+   - Seja conciso e direto ao ponto. Evite introduções longas, textos prolixos, relatórios genéricos ou repetições desnecessárias. Mantenha respostas curtas e legíveis para bate-papo/chat (idealmente entre 2 a 4 parágrafos ou tópicos objetivos).
+
+2. ISOLAMENTO RIGOROSO DE INSTITUIÇÃO:
+   - Você DEVE responder UNICAMENTE com base nos residentes e registros da INSTITUIÇÃO ATIVA fornecida no contexto.
+   - É STRICTAMENTE PROIBIDO responder ou inferir dados de idosos pertencentes a outras instituições.
+   - Se a instituição ativa consultada não possuir residentes ou logs cadastrados (ex: instituição recém-criada sem idosos), informe claramente: "A instituição ativa consultada não possui residentes ou registros cadastrados no momento."
+
+3. QUANDO ESTRUTURAR RESPOSTAS MAIS LONGAS:
+   - Para perguntas específicas de um residente ou dúvida pontual: responda diretamente a dúvida, trazendo o status mais recente, eventuais alertas/recusas e orientações práticas imediatas.
+   - Apenas apresente um relatório geral completo dividido em seções (🚨 Alertas / ✅ Sem Alertas / ⚠️ Lacunas / 🛡️ Recomendações) se o usuário pedir EXPLICITAMENTE por "resumo geral da casa", "relatório de todos", "situação geral da instituição" ou "auditoria completa".
+   - Apenas apresente um "## Plano Personalizado" de 4 pilares se o usuário pedir especificamente um "plano" ou "orientação de treino/dieta".
+
+4. TRIAGEM RIGOROSA DE RISCOS E ALERTAS (TOLERÂNCIA ZERO A FALSOS POSITIVOS):
    - Examine minuciosamente todos os registros (logs) e observações dos cuidadores.
-   - Qualquer status de "Recusou", "Parcial", "Não Realizado", "Ausente", "Alterado", "Ruim", ou notas contendo dor, queda, febre, recusa alimentar/hídrica, ausência de medicação, agitação ou insônia DEVE SER IMEDIATAMENTE CLASSIFICADO COMO RISCO / ALERTA (🚨 [ALERTA DE RISCO]).
-   - É STRICTAMENTE PROIBIDO descrever o dia ou quadro de um residente como "positivo", "estável", "sem alterações" ou "seguro" se houver QUALQUER recusa ou intercorrência registrada no período analisado.
-   - Se um residente teve registros mistos (ex: almoçou bem, mas recusou o jantar ou recusou a medicação), DESTAQUE A RECUSA/INTERCORRÊNCIA COMO PONTO PRINCIPAL DE ATENÇÃO. Não amacie ou omita registros negativos.
+   - Qualquer status de "Recusou", "Parcial", "Não Realizado", "Ausente", "Alterado", "Ruim", ou notas contendo dor, queda, febre, recusa alimentar/hídrica, ausência de medicação, agitação ou insônia DEVE SER IMEDIATAMENTE DESTACADO COMO ALERTA DE RISCO (🚨 [ALERTA DE RISCO]).
+   - Se um residente teve registros mistos (ex: almoçou bem, mas recusou a medicação), DESTAQUE A RECUSA COMO PONTO PRINCIPAL DE ATENÇÃO. NUNCA descreva o quadro de um residente como "tranquilo" ou "sem alterações" se houver recusas/intercorrências registradas no período.
 
-2. CORRELAÇÃO TEMPORAL PRECISA:
-   - Verifique sempre a DATA ATUAL fornecida e compare com a data dos registros (Data e Turno).
-   - Quando o usuário perguntar por "ontem", "hoje", "últimos dias" ou uma data específica, filtre estritamente os logs correspondentes a esse período. Se a pergunta for sobre "ontem", indique explicitamente os fatos ocorridos na data de ontem.
-   - Se não houver logs registrados para um determinado residente na data solicitada, informe claramente: "Sem registros cadastrados para a data X".
-
-3. ESTRUTURA DE RESPOSTA PARA CONSULTAS DE RISCO / SITUAÇÃO GERAL:
-   Quando a pergunta for sobre riscos, atenção, segurança ou resumo geral da instituição, estruture a resposta obrigatoriamente nesta ordem:
-   
-   🚨 **Residentes com Alertas / Riscos Detectados**:
-   - Liste cada idoso em alerta citando Nome, Idade, Data/Hora exata, Categoria (Alimentação, Medicação, Hidratação, etc.), Status exato e as Notas do Cuidador na íntegra. Explique o risco fisiológico geriátrico associado (ex: risco de desidratação, sarcopenia, hipoglicemia, descontinuidade terapêutica).
-
-   ✅ **Residentes sem Alertas Registrados**:
-   - Resumo objetivo dos idosos que cumpriram 100% das rotinas planejadas sem recusas ou intercorrências.
-
-   ⚠️ **Lacunas de Informação**:
-   - Identifique residentes cadastrados que não possuem registros no período consultado.
-
-   🛡️ **Recomendações & Ações Preventivas Imediatas**:
-   - Oriente a equipe sobre condutas imediatas de manejo para cada risco identificado (ex: fracionamento hídrico, reoferta alimentar com ajuste de textura, checagem de sinais vitais, notificação da enfermagem/médico).
-
-4. ESTRUTURA DE "PLANO PERSONALIZADO" (quando solicitado):
-   - Sempre que solicitado um plano, orientação específica ou "plano do [Nome]", apresente sob o título "## Plano Personalizado - [Nome do Residente]".
-   - O plano DEVE cobrir obrigatoriamente 4 pilares prescritivos e individualizados com base nos alertas recentes:
-     a) 🏋️‍♂️ **Exercícios de Força & Equilíbrio**: Frequência e tipos específicos adequados à mobilidade.
-     b) 🥗 **Nutrição & Proteína (Combate à Sarcopenia)**: Estratégias nutricionais focadas em recusas recentes ou prevenção de perda muscular.
-     c) 💧 **Meta de Hidratação**: Meta diária fracionada (ex: 1.5L a 2.0L/dia).
-     d) 🛡️ **Protocolo de Segurança & Prevenção**: Prevenção de quedas, adequação de ambiente e monitoramento.
-
-5. REGRAS GERAIS:
-   - NÃO É MÉDICO: Nunca forneça diagnósticos definitivos ou prescrições farmacológicas. Em episódios graves (como quedas com trauma, febre persistente, dor intensa ou broncoaspiração), recomende avaliação médica imediata.
-   - FIDELIDADE ABSOLUTA AOS DADOS: Baseie-se unicamente nos dados fornecidos. Não invente ou presuma hábitos saudáveis que não constem nos logs.
-   - FORMATO: Responda em Português (Brasil) utilizando Markdown limpo e bem estruturado.`;
+5. REGRAS DE SEGURANÇA E CONDUTA:
+   - NÃO É MÉDICO: Nunca forneça diagnósticos definitivos ou prescrições farmacológicas. Em intercorrências graves (como quedas com trauma, febre persistente, dor intensa), recomende avaliação médica imediata.
+   - FIDELIDADE ABSOLUTA AOS DADOS: Baseie-se unicamente nos dados fornecidos. Não invente ou presuma fatos que não constem nos logs.
+   - FORMATO: Responda em Português (Brasil) utilizando Markdown limpo, direto e bem formatado.`;
 
 export async function POST(req: Request) {
   try {
@@ -122,14 +108,17 @@ export async function POST(req: Request) {
 
     // ─── PARSE BODY ───
     const body = await req.json();
-    const { prompt, patients, logs } = body;
+    const { prompt, patients, logs, instituicaoId, instituicaoNome } = body;
 
-    // ─── DADOS COMPACTOS E ENRIQUECIDOS DE FORMA ORDENADA ───
+    // ─── FILTRAR E SANITIZAR DADOS POR INSTITUIÇÃO ATIVA ───
+    const filteredPatients = (patients || []).filter((p: any) => !instituicaoId || !p.instituicaoId || p.instituicaoId === instituicaoId);
+    const filteredLogs = (logs || []).filter((l: any) => !instituicaoId || !l.instituicaoId || l.instituicaoId === instituicaoId);
+
     const hoje = new Date().toLocaleDateString('pt-BR');
-    const pacientesMin = (patients || []).map((p: any) => `${p.nome || "?"} (${p.idade || "?"}a)`);
+    const pacientesMin = filteredPatients.map((p: any) => `${p.nome || "?"} (${p.idade || "?"}a)`);
 
     // Ordenar logs por data decrescente (mais recentes primeiro)
-    const sortedLogs = [...(logs || [])].sort((a: any, b: any) => {
+    const sortedLogs = [...filteredLogs].sort((a: any, b: any) => {
       const getMs = (l: any) => {
         if (l.dataHora?.seconds) return l.dataHora.seconds * 1000;
         if (l.dataHora?._seconds) return l.dataHora._seconds * 1000;
@@ -147,13 +136,13 @@ export async function POST(req: Request) {
     });
 
     const logsMin = sortedLogs.slice(0, 100).map((l: any) => {
-      const nome = (patients || []).find((p: any) => p.id === l.pacienteId)?.nome || l.pacienteId || "?";
+      const nome = filteredPatients.find((p: any) => p.id === l.pacienteId)?.nome || l.pacienteId || "?";
       const dataHoraStr = fmtTs(l.dataHora);
       const dataStr = dataHoraStr ? `${dataHoraStr} (Turno: ${l.dataTurno || "?"})` : (l.dataTurno || "?");
       const tipo = l.tipoLabel || l.tipo || "?";
       const status = l.status || "?";
 
-      // Coletar TODAS as observações e detalhes sem descartar observacaoTurno ou observacao
+      // Coletar observações
       const notesSet = new Set<string>();
       [l.detalhe, l.observacaoTurno, l.observacao, l.resumo].forEach((val: any) => {
         if (typeof val === 'string' && val.trim().length > 0 && val.trim() !== status) {
@@ -168,8 +157,9 @@ export async function POST(req: Request) {
     });
 
     // ─── PROMPT FINAL DO AGENTE ───
+    const instHeader = instituicaoNome || instituicaoId || "Instituição Ativa";
     let finalPrompt = prompt || "Faça uma síntese situacional da rotina dos residentes.";
-    finalPrompt += `\n\nDATA ATUAL DO SISTEMA: ${hoje}\nPACIENTES CADASTRADOS: ${pacientesMin.join(", ")}\nLOGS RECENTES DE ROTINA:\n${logsMin.join("\n")}`;
+    finalPrompt += `\n\nINSTITUIÇÃO ATIVA CONSULTADA: ${instHeader}\nDATA ATUAL DO SISTEMA: ${hoje}\nPACIENTES CADASTRADOS NESTA INSTITUIÇÃO (${filteredPatients.length}): ${pacientesMin.length > 0 ? pacientesMin.join(", ") : "Nenhum paciente cadastrado nesta instituição"}\nLOGS RECENTES DE ROTINA NESTA INSTITUIÇÃO (${logsMin.length}): ${logsMin.length > 0 ? "\n" + logsMin.join("\n") : "Nenhum log registrado para esta instituição"}`;
 
     // ─── CONFIG ───
     const config: Record<string, unknown> = {

@@ -456,9 +456,9 @@ export default function LogRotinaPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Campo de Busca de Residentes */}
-            <div className="relative flex items-center rounded-2xl md:rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm focus-within:border-blue-500 focus-within:shadow-md transition-all">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
+            {/* Campo de Busca de Residentes — Apple Glass Input */}
+            <div className="relative flex items-center rounded-2xl md:rounded-[2rem] border border-slate-200/90 bg-white/90 backdrop-blur-xl p-2 shadow-sm focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100 transition-all">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50/80 text-blue-600">
                 <Search className="h-5 w-5" />
               </div>
               <input
@@ -470,7 +470,7 @@ export default function LogRotinaPage() {
               />
             </div>
 
-            {/* Lista de Cards dos Residentes */}
+            {/* Lista de Cards dos Residentes — Apple HIG Style */}
             {pacientes
               .filter((p) => p.nome.toLowerCase().includes(searchTerm.toLowerCase()))
               .map((paciente) => {
@@ -495,10 +495,10 @@ export default function LogRotinaPage() {
                 return (
                   <div
                     key={paciente.id}
-                    className={`group/patient overflow-hidden rounded-3xl md:rounded-[2.5rem] border bg-white shadow-sm transition-all duration-300 ${
+                    className={`group/patient overflow-hidden rounded-3xl md:rounded-[2.5rem] border transition-all duration-300 ${
                       isExpanded
-                        ? "border-blue-400 ring-2 ring-blue-100 shadow-xl"
-                        : "border-slate-200 hover:border-blue-300 hover:shadow-md"
+                        ? "border-blue-500/80 ring-4 ring-blue-500/10 shadow-2xl bg-white"
+                        : "apple-card hover:border-blue-300"
                     }`}
                   >
                     {/* Top Header Card Residente */}

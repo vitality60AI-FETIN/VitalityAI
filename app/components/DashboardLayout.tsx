@@ -7,6 +7,7 @@ import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, Che
 import { auth } from "../../lib/firebase";
 import { useInstitucaoId, useCuidadorData, useInstitucaoData } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import AiInsightsWidget from "./AiInsightsWidget";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -403,6 +404,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           })}
         </div>
       </nav>
+
+      {/* Widget Flutuante da IA (Chatbot no canto inferior direito) */}
+      <AiInsightsWidget />
     </div>
   );
 }

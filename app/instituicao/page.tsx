@@ -257,8 +257,8 @@ export default function InstituicaoPage() {
         )}
 
         <form onSubmit={handleSave} className="space-y-8">
-          {/* SEÇÃO 1: LOGOTIPO & NOME DA INSTITUIÇÃO */}
-          <section className="rounded-[2.5rem] border border-slate-200/80 bg-white p-6 md:p-8 shadow-sm transition-all hover:shadow-md">
+          {/* SEÇÃO 1: LOGOTIPO & NOME DA INSTITUIÇÃO — APPLE HIG */}
+          <section className="apple-card rounded-[2.5rem] p-6 md:p-8">
             <h2 className="text-base font-black text-slate-900 uppercase tracking-wider mb-6 flex items-center gap-2.5 pb-4 border-b border-slate-100">
               <Sparkles className="h-5 w-5 text-blue-600" />
               Identificação & Logotipo
