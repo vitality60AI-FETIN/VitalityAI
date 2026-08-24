@@ -50,19 +50,37 @@ export function calcularStatusSeguranca(
     const detalhe = String(log.detalhe || log.detail || log.observacao || log.resumo || "").toLowerCase();
     const textCombined = `${tipo} ${status} ${detalhe}`;
 
+    const isSemIntercorrencia =
+      status.includes("sem intercorrênc") ||
+      status.includes("sem intercorrenc") ||
+      status.includes("sem interferênc") ||
+      status.includes("sem interferenc") ||
+      status.includes("nenhum") ||
+      status.includes("nenhuma") ||
+      status.includes("normal") ||
+      detalhe.includes("sem intercorrênc") ||
+      detalhe.includes("sem intercorrenc") ||
+      detalhe.includes("sem interferênc") ||
+      detalhe.includes("sem interferenc") ||
+      textCombined.includes("sem intercorrênc") ||
+      textCombined.includes("sem intercorrenc") ||
+      textCombined.includes("sem interferênc") ||
+      textCombined.includes("sem interferenc");
+
     // Nível Vermelho (Incidentes Críticos / Alertas de Urgência)
     if (
-      tipo === "incidente" ||
-      status.includes("queda") ||
-      status.includes("febre") ||
-      status.includes("desidratação") ||
-      status.includes("infecção") ||
-      status.includes("urgênc") ||
-      (tipo === "medicacao" && (status.includes("recusa") || status.includes("não administ"))) ||
-      (tipo === "cognitivo" && (status.includes("agressiv") || status.includes("desorientad"))) ||
-      textCombined.includes("queda") ||
-      textCombined.includes("febre") ||
-      textCombined.includes("emergência")
+      !isSemIntercorrencia &&
+      (tipo === "incidente" ||
+        status.includes("queda") ||
+        status.includes("febre") ||
+        status.includes("desidratação") ||
+        status.includes("infecção") ||
+        status.includes("urgênc") ||
+        (tipo === "medicacao" && (status.includes("recusa") || status.includes("não administ"))) ||
+        (tipo === "cognitivo" && (status.includes("agressiv") || status.includes("desorientad"))) ||
+        textCombined.includes("queda") ||
+        textCombined.includes("febre") ||
+        textCombined.includes("emergência"))
     ) {
       maxRisco = "Vermelho";
       break; // Risco máximo atingido

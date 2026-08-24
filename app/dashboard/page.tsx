@@ -40,6 +40,7 @@ import {
   getDocs,
   onSnapshot,
   addDoc,
+  updateDoc,
   serverTimestamp,
   deleteDoc,
   doc,
@@ -194,21 +195,49 @@ export default function DashboardLobby() {
     const seen = new Set<string>();
     const result: DashboardAlert[] = [];
 
-    for (const l of logs) {
+    // Sort logs descending by timestamp first so we get the latest update
+    const sortedLogs = [...logs].sort((a, b) => {
+      const tsA = a.dataHora && typeof a.dataHora.toDate === "function" ? a.dataHora.toDate().getTime() : 0;
+      const tsB = b.dataHora && typeof b.dataHora.toDate === "function" ? b.dataHora.toDate().getTime() : 0;
+      return tsB - tsA;
+    });
+
+    for (const l of sortedLogs) {
       const p = pacientesComStatus.find((p) => p.id === l.pacienteId);
       const pacienteNome = p?.nome || l.pacienteId || "Residente";
       const tipo = String(l.tipo || "").toLowerCase();
       const status = String(l.status || "").toLowerCase();
+      const detalhe = String(l.detalhe || l.observacao || "").toLowerCase();
+      const resumo = String(l.resumo || "").toLowerCase();
       const dataStr = l.dataTurno || (l.dataHora?.toDate ? l.dataHora.toDate().toISOString().slice(0, 10) : "");
 
-      // Chave única para deduplicação visual na tela
-      const dedupKey = `${l.pacienteId}-${tipo}-${status}-${dataStr}`;
-      if (seen.has(dedupKey)) continue; // Pula ocorrências idênticas duplicadas
+      // Chave única para deduplicação visual na tela (1 log por tipo/dia por paciente)
+      const dedupKey = `${l.pacienteId}-${tipo}-${dataStr}`;
+      if (seen.has(dedupKey)) continue; // Pula ocorrências idênticas duplicadas do mesmo dia
       seen.add(dedupKey);
+
+      const isSemIntercorrencia =
+        status.includes("sem intercorrênc") ||
+        status.includes("sem intercorrenc") ||
+        status.includes("sem interferênc") ||
+        status.includes("sem interferenc") ||
+        status.includes("nenhum") ||
+        status.includes("nenhuma") ||
+        status.includes("normal") ||
+        detalhe.includes("sem intercorrênc") ||
+        detalhe.includes("sem intercorrenc") ||
+        detalhe.includes("sem interferênc") ||
+        detalhe.includes("sem interferenc") ||
+        resumo.includes("sem intercorrênc") ||
+        resumo.includes("sem intercorrenc") ||
+        resumo.includes("sem interferênc") ||
+        resumo.includes("sem interferenc");
 
       let severidade: "urgente" | "atencao" | "estavel" = "estavel";
 
-      if (
+      if (isSemIntercorrencia) {
+        severidade = "estavel";
+      } else if (
         tipo === "incidente" ||
         status.includes("queda") ||
         status.includes("febre") ||
@@ -425,7 +454,7 @@ export default function DashboardLobby() {
     setQuickLogModalOpen(true);
   };
 
-  // Salvar log rápido
+  // Salvar log rápido (atualiza se já existir log no dia para este paciente)
   const handleSaveQuickLog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPacienteId) return;
@@ -435,21 +464,56 @@ export default function DashboardLobby() {
       const user = auth.currentUser;
       if (user && instituicaoId) {
         const pNome = pacientes.find((p) => p.id === selectedPacienteId)?.nome || "Residente";
-        const docRef = await addDoc(collection(db, "LogsRotina"), {
-          pacienteId: selectedPacienteId,
-          cuidadorId: user.uid,
-          instituicaoId,
-          dataHora: serverTimestamp(),
-          dataTurno: new Date().toISOString().slice(0, 10),
-          tipo: quickTipo,
-          status: quickStatus,
-          resumo: quickDetail ? `${quickStatus} - ${quickDetail}` : quickStatus,
-          detalhe: quickDetail,
-          observacaoTurno: "Registrado via Ação Rápida no Dashboard",
-          turnoEncerrado: false,
-        });
-        setLastCreatedLogId(docRef.id);
-        showToast(`Registro de ${quickTipo} salvo para ${pNome}`, true);
+        const hojeStr = new Date().toISOString().slice(0, 10);
+        const resumo = quickDetail ? `${quickStatus} - ${quickDetail}` : quickStatus;
+
+        // Verificar se já existe log para este paciente, tipo e dia
+        const qLog = query(
+          collection(db, "LogsRotina"),
+          where("instituicaoId", "==", instituicaoId),
+          where("pacienteId", "==", selectedPacienteId),
+          where("tipo", "==", quickTipo),
+          where("dataTurno", "==", hojeStr)
+        );
+        const snap = await getDocs(qLog);
+
+        if (!snap.empty) {
+          // Atualizar o log existente de hoje
+          const existingDoc = snap.docs[0];
+          await updateDoc(doc(db, "LogsRotina", existingDoc.id), {
+            cuidadorId: user.uid,
+            dataHora: serverTimestamp(),
+            status: quickStatus,
+            resumo,
+            detalhe: quickDetail,
+            observacaoTurno: "Atualizado via Ação Rápida no Dashboard",
+          });
+
+          // Remover duplicatas extras se existirem do passado
+          for (let i = 1; i < snap.docs.length; i++) {
+            await deleteDoc(doc(db, "LogsRotina", snap.docs[i].id));
+          }
+
+          setLastCreatedLogId(existingDoc.id);
+          showToast(`✓ Registro de ${quickTipo} atualizado para ${pNome}`, true);
+        } else {
+          // Criar novo registro se não existir hoje
+          const docRef = await addDoc(collection(db, "LogsRotina"), {
+            pacienteId: selectedPacienteId,
+            cuidadorId: user.uid,
+            instituicaoId,
+            dataHora: serverTimestamp(),
+            dataTurno: hojeStr,
+            tipo: quickTipo,
+            status: quickStatus,
+            resumo,
+            detalhe: quickDetail,
+            observacaoTurno: "Registrado via Ação Rápida no Dashboard",
+            turnoEncerrado: false,
+          });
+          setLastCreatedLogId(docRef.id);
+          showToast(`✓ Registro de ${quickTipo} salvo para ${pNome}`, true);
+        }
         setQuickLogModalOpen(false);
       }
     } catch (err) {

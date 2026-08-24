@@ -20,6 +20,10 @@ import { useInstitucaoId } from "../../lib/hooks";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   addDoc,
+  updateDoc,
+  getDocs,
+  deleteDoc,
+  doc,
   collection,
   query,
   serverTimestamp,
@@ -174,6 +178,57 @@ export default function LogRotinaPage() {
     return () => window.clearTimeout(timeoutId);
   }, [toast]);
 
+  // Preencher drafts com os dados gravados hoje no banco para facilitar visualização e edição
+  useEffect(() => {
+    if (logs.length === 0 || rawPacientes.length === 0) return;
+    const hojeStr = formatarDataParaInput();
+
+    setDrafts((prevDrafts) => {
+      const nextDrafts = { ...prevDrafts };
+      let changed = false;
+
+      rawPacientes.forEach((paciente) => {
+        const pacienteDraft = nextDrafts[paciente.id] || criarDraftVazio();
+        const logsHoje = logs.filter((l) => {
+          if (l.pacienteId !== paciente.id) return false;
+          const dStr = l.dataTurno || (l.dataHora?.toDate ? l.dataHora.toDate().toISOString().slice(0, 10) : "");
+          return dStr === hojeStr;
+        });
+
+        if (logsHoje.length === 0) return;
+
+        let draftUpdated = false;
+        const newAtividades = { ...pacienteDraft.atividades };
+        let obsTurno = pacienteDraft.observacaoTurno;
+
+        logsHoje.forEach((log) => {
+          const tipo = log.tipo as ActivityType;
+          if (newAtividades[tipo] && !newAtividades[tipo].status && log.status) {
+            newAtividades[tipo] = {
+              status: log.status,
+              detail: log.detalhe || "",
+            };
+            draftUpdated = true;
+          }
+          if (!obsTurno && log.observacaoTurno) {
+            obsTurno = log.observacaoTurno;
+            draftUpdated = true;
+          }
+        });
+
+        if (draftUpdated) {
+          nextDrafts[paciente.id] = {
+            atividades: newAtividades,
+            observacaoTurno: obsTurno,
+          };
+          changed = true;
+        }
+      });
+
+      return changed ? nextDrafts : prevDrafts;
+    });
+  }, [logs, rawPacientes]);
+
   const irParaCadastroPaciente = () => {
     router.push("/pacientes/novo");
   };
@@ -257,19 +312,49 @@ export default function LogRotinaPage() {
         const detalhe = atividade.detail;
         const resumo = detalhe ? `${atividade.status} - ${detalhe}` : atividade.status;
 
-        await addDoc(collection(db, "LogsRotina"), {
-          pacienteId: conclusaoTurno.pacienteId,
-          cuidadorId: usuarioAtual.uid,
-          instituicaoId,
-          dataHora: serverTimestamp(),
-          dataTurno: conclusaoTurno.dataTurno,
-          tipo: atividade.tipo,
-          status: atividade.status,
-          resumo,
-          detalhe,
-          observacaoTurno: draft.observacaoTurno.trim(),
-          turnoEncerrado: true,
-        });
+        // Limitar a 1 log por dia/tipo por paciente: se já existir log hoje, edita/atualiza ao invés de duplicar
+        const qExisting = query(
+          collection(db, "LogsRotina"),
+          where("instituicaoId", "==", instituicaoId),
+          where("pacienteId", "==", conclusaoTurno.pacienteId),
+          where("tipo", "==", atividade.tipo),
+          where("dataTurno", "==", conclusaoTurno.dataTurno)
+        );
+        const snap = await getDocs(qExisting);
+
+        if (!snap.empty) {
+          // Atualizar o log de hoje existente
+          const existingDocId = snap.docs[0].id;
+          await updateDoc(doc(db, "LogsRotina", existingDocId), {
+            cuidadorId: usuarioAtual.uid,
+            dataHora: serverTimestamp(),
+            status: atividade.status,
+            resumo,
+            detalhe,
+            observacaoTurno: draft.observacaoTurno.trim(),
+            turnoEncerrado: true,
+          });
+
+          // Remover quaisquer duplicatas adicionais do mesmo dia
+          for (let i = 1; i < snap.docs.length; i++) {
+            await deleteDoc(doc(db, "LogsRotina", snap.docs[i].id));
+          }
+        } else {
+          // Criar novo registro para hoje
+          await addDoc(collection(db, "LogsRotina"), {
+            pacienteId: conclusaoTurno.pacienteId,
+            cuidadorId: usuarioAtual.uid,
+            instituicaoId,
+            dataHora: serverTimestamp(),
+            dataTurno: conclusaoTurno.dataTurno,
+            tipo: atividade.tipo,
+            status: atividade.status,
+            resumo,
+            detalhe,
+            observacaoTurno: draft.observacaoTurno.trim(),
+            turnoEncerrado: true,
+          });
+        }
       }
 
       // Limpar rascunho do paciente recém-salvo
