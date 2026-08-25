@@ -105,6 +105,9 @@ export default function DashboardLobby() {
   const [quickDetail, setQuickDetail] = useState("");
   const [quickSaving, setQuickSaving] = useState(false);
 
+  // Modal de Residentes em Atenção Prioritária
+  const [modalAtencaoOpen, setModalAtencaoOpen] = useState(false);
+
   const router = useRouter();
   const { instituicaoId, role, loading: loadingInstituicao } = useInstitucaoId();
 
@@ -534,6 +537,18 @@ export default function DashboardLobby() {
     setTimeout(() => setToastInfo(null), 5000);
   };
 
+  const handleCardAtencaoClick = () => {
+    if (pacientesAtencao.length === 0) {
+      showToast("✅ Todos os residentes estão em estado estável hoje!");
+      return;
+    }
+    if (pacientesAtencao.length === 1) {
+      router.push(`/pacientes/${pacientesAtencao[0].id}`);
+      return;
+    }
+    setModalAtencaoOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -593,14 +608,14 @@ export default function DashboardLobby() {
         <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => handleOpenQuickLog()}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-4 md:px-5 py-3 min-h-[44px] text-sm font-bold shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 ios-press"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-4 md:px-5 py-3 min-h-[44px] text-sm font-bold shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 ios-press cursor-pointer"
           >
             <Plus className="h-4 w-4 stroke-[3]" />
             <span className="hidden sm:inline">Registrar</span> Ocorrência
           </button>
           <button
             onClick={() => router.push("/pacientes/novo")}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-4 md:px-5 py-3 min-h-[44px] text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 ios-press"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-4 md:px-5 py-3 min-h-[44px] text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 ios-press cursor-pointer"
           >
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">+</span> Residente
@@ -619,27 +634,34 @@ export default function DashboardLobby() {
           </p>
           <button
             onClick={() => router.push("/pacientes/novo")}
-            className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+            className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 cursor-pointer"
           >
             Cadastrar Primeiro Residente
           </button>
         </div>
       ) : (
         <div className="space-y-8">
-          {/* SEÇÃO 1: MÉTRICAS & INDICADORES CHAVE (CARDS DE RESUMO APPLE HIG) */}
+          {/* SEÇÃO 1: MÉTRICAS & INDICADORES CHAVE (CARDS CLICÁVEIS) */}
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
             {/* Card 1: Total de Residentes */}
-            <div className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-default">
+            <div
+              onClick={() => router.push("/pacientes")}
+              className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-pointer hover:border-blue-300 hover:shadow-md transition-all active:scale-[0.98]"
+              title="Clique para ver a lista de residentes"
+            >
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Total Monitorado</p>
-                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900">
+                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
                     {pacientes.length}
                   </h3>
                   <p className="mt-1.5 text-xs font-bold text-emerald-600 flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     100% ativos na unidade
                   </p>
+                  <span className="text-[10px] font-bold text-blue-600 flex items-center gap-1 mt-2 group-hover:translate-x-0.5 transition-transform">
+                    Ver prontuários ➔
+                  </span>
                 </div>
                 <div className="rounded-2xl bg-blue-50/90 p-3 text-blue-600 transition-all duration-300 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white shadow-xs">
                   <Users className="h-6 w-6" />
@@ -647,17 +669,28 @@ export default function DashboardLobby() {
               </div>
             </div>
 
-            {/* Card 2: Requerem Atenção Prioritária */}
-            <div className="apple-card group rounded-3xl border-amber-200/80 bg-gradient-to-br from-amber-50/50 via-white to-white p-4 md:p-6 apple-button cursor-default">
+            {/* Card 2: Requerem Atenção Prioritária (1-Click Direct Access) */}
+            <div
+              onClick={handleCardAtencaoClick}
+              className={`apple-card group rounded-3xl border p-4 md:p-6 apple-button cursor-pointer transition-all active:scale-[0.98] ${
+                pacientesAtencao.length > 0
+                  ? "border-amber-300 bg-gradient-to-br from-amber-50/80 via-white to-white hover:border-amber-400 hover:shadow-lg hover:scale-[1.02] ring-1 ring-amber-200/50"
+                  : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md"
+              }`}
+              title={pacientesAtencao.length > 0 ? "Clique para ver residentes em atenção prioritária" : "Todos em estado seguro"}
+            >
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-wider text-amber-700">Atenção Prioritária</p>
-                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-amber-900">
+                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-amber-900 group-hover:text-amber-600 transition-colors">
                     {pacientesAtencao.length}
                   </h3>
                   <p className="mt-1.5 text-xs font-bold text-amber-600">
                     {pacientesAtencao.length > 0 ? "Exigem checagem no turno" : "Todos em estado seguro"}
                   </p>
+                  <span className="text-[10px] font-black text-amber-700 flex items-center gap-1 mt-2 group-hover:translate-x-0.5 transition-transform">
+                    {pacientesAtencao.length > 0 ? "Ver idosos em atenção ➔" : "Tudo estável ✓"}
+                  </span>
                 </div>
                 <div className="rounded-2xl bg-amber-100/80 p-3 text-amber-700 transition-all duration-300 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white shadow-xs">
                   <AlertTriangle className="h-6 w-6" />
@@ -666,11 +699,15 @@ export default function DashboardLobby() {
             </div>
 
             {/* Card 3: Progresso do Turno */}
-            <div className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-default">
+            <div
+              onClick={() => router.push("/rotina")}
+              className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all active:scale-[0.98]"
+              title="Clique para ir para o Registro de Rotina"
+            >
               <div className="flex items-start justify-between">
                 <div className="w-full">
                   <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Rotinas do Turno</p>
-                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900">
+                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
                     {concluidasCount} <span className="text-lg font-bold text-slate-400">/ {totalTarefas}</span>
                   </h3>
                   <div className="mt-3 w-full bg-slate-100/80 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200/50">
@@ -679,6 +716,9 @@ export default function DashboardLobby() {
                       style={{ width: `${progressoPercent}%` }}
                     />
                   </div>
+                  <span className="text-[10px] font-bold text-indigo-600 flex items-center gap-1 mt-2 group-hover:translate-x-0.5 transition-transform">
+                    Ir para Rotina ➔
+                  </span>
                 </div>
                 <div className="rounded-2xl bg-indigo-50/90 p-3 text-indigo-600 ml-3 transition-all duration-300 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white shrink-0 shadow-xs">
                   <Clock className="h-6 w-6" />
@@ -687,16 +727,23 @@ export default function DashboardLobby() {
             </div>
 
             {/* Card 4: Ocorrências / Incidentes 24h */}
-            <div className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-default">
+            <div
+              onClick={() => router.push("/rotina")}
+              className="apple-card group rounded-3xl p-4 md:p-6 apple-button cursor-pointer hover:border-rose-300 hover:shadow-md transition-all active:scale-[0.98]"
+              title="Clique para ver o log de rotina"
+            >
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Registros 24h</p>
-                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900">
+                  <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-900 group-hover:text-rose-600 transition-colors">
                     {incidentesHoje}
                   </h3>
                   <p className="mt-1.5 text-xs font-bold text-slate-500">
                     Entradas de rotina e alertas
                   </p>
+                  <span className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-2 group-hover:translate-x-0.5 transition-transform">
+                    Histórico de registros ➔
+                  </span>
                 </div>
                 <div className="rounded-2xl bg-rose-50/90 p-3 text-rose-600 transition-all duration-300 group-hover:scale-110 group-hover:bg-rose-600 group-hover:text-white shadow-xs">
                   <Activity className="h-6 w-6" />
@@ -749,9 +796,13 @@ export default function DashboardLobby() {
                             </div>
 
                             {/* Nome + badge (visível inline no mobile) */}
-                            <div className="flex-1 min-w-0 md:hidden">
+                            <div
+                              onClick={() => router.push(`/pacientes/${tarefa.pacienteId}`)}
+                              className="flex-1 min-w-0 md:hidden cursor-pointer group/mob"
+                              title={`Abrir prontuário de ${tarefa.pacienteNome}`}
+                            >
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-extrabold text-slate-900 truncate">
+                                <span className="text-sm font-extrabold text-slate-900 truncate group-hover/mob:text-blue-600 transition-colors">
                                   {tarefa.pacienteNome}
                                 </span>
                                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 shrink-0">
@@ -763,9 +814,13 @@ export default function DashboardLobby() {
                           </div>
 
                           {/* Conteúdo completo (desktop) */}
-                          <div className="min-w-0 flex-1 hidden md:block">
+                          <div
+                            onClick={() => router.push(`/pacientes/${tarefa.pacienteId}`)}
+                            className="min-w-0 flex-1 hidden md:block cursor-pointer group/desk"
+                            title={`Abrir prontuário de ${tarefa.pacienteNome}`}
+                          >
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-extrabold text-slate-900 truncate">
+                              <span className="text-sm font-extrabold text-slate-900 truncate group-hover/desk:text-blue-600 transition-colors">
                                 {tarefa.pacienteNome}
                               </span>
                               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
@@ -789,14 +844,14 @@ export default function DashboardLobby() {
                               <>
                                 <button
                                   onClick={() => handleInitiateCheckTarefa(tarefa)}
-                                  className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 min-h-[44px] md:min-h-0 md:py-2 text-xs font-bold shadow-sm transition-all ios-press"
+                                  className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 min-h-[44px] md:min-h-0 md:py-2 text-xs font-bold shadow-sm transition-all ios-press cursor-pointer"
                                   title="Confirmar execução"
                                 >
                                   <Check className="h-3.5 w-3.5 stroke-[3]" /> Check
                                 </button>
                                 <button
                                   onClick={() => handleOpenQuickLog(tarefa.pacienteId)}
-                                  className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-2.5 py-2 min-h-[44px] md:min-h-0 md:py-2 text-xs font-bold shadow-sm transition-all ios-press"
+                                  className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-2.5 py-2 min-h-[44px] md:min-h-0 md:py-2 text-xs font-bold shadow-sm transition-all ios-press cursor-pointer"
                                   title="Registrar observação"
                                 >
                                   + Log
@@ -892,15 +947,17 @@ export default function DashboardLobby() {
                       return (
                         <div
                           key={alerta.id}
-                          className={`rounded-2xl border p-4 transition-all hover:shadow-md ${cardBg}`}
+                          onClick={() => router.push(`/pacientes/${alerta.pacienteId}`)}
+                          className={`rounded-2xl border p-4 transition-all duration-200 cursor-pointer hover:scale-[1.015] hover:shadow-md hover:border-slate-300 active:scale-[0.99] group/card ${cardBg}`}
+                          title={`Clique para abrir o prontuário de ${alerta.pacienteNome}`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white text-slate-800 font-black text-sm shadow-sm border border-slate-100">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white text-slate-800 font-black text-sm shadow-sm border border-slate-100 group-hover/card:scale-105 transition-transform">
                                 {(() => { const fUrl = (pacientesComStatus.find(p => p.id === alerta.pacienteId) as any)?.fotoUrl; return fUrl ? <img src={fUrl} alt="" className="h-full w-full object-cover" /> : alerta.pacienteNome.charAt(0); })()}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-extrabold text-slate-900 truncate">
+                                <p className="text-xs font-extrabold text-slate-900 truncate group-hover/card:text-blue-600 transition-colors">
                                   {alerta.pacienteNome}
                                 </p>
                                 <p className="text-xs font-bold text-slate-700 mt-0.5 truncate">
@@ -923,15 +980,21 @@ export default function DashboardLobby() {
                             <span className="text-slate-400 font-medium">{ts}</span>
                             <div className="flex items-center gap-3">
                               <button
-                                onClick={() => handleInitiateDeleteLog(alerta.id, alerta.pacienteNome, `${alerta.tipoLabel || alerta.tipo}: ${alerta.status}`)}
-                                className={`p-1.5 rounded-lg transition-colors ${role === "Admin" ? "text-slate-400 hover:text-red-600 hover:bg-red-50" : "text-slate-300 cursor-not-allowed"}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleInitiateDeleteLog(alerta.id, alerta.pacienteNome, `${alerta.tipoLabel || alerta.tipo}: ${alerta.status}`);
+                                }}
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${role === "Admin" ? "text-slate-400 hover:text-red-600 hover:bg-red-50" : "text-slate-300 cursor-not-allowed"}`}
                                 title={role === "Admin" ? "Excluir Registro (Admin)" : "Apenas administradores podem excluir registros"}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
                               <button
-                                onClick={() => router.push(`/pacientes/${alerta.pacienteId}`)}
-                                className="font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/pacientes/${alerta.pacienteId}`);
+                                }}
+                                className="font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 group-hover/card:underline cursor-pointer"
                               >
                                 Prontuário <ArrowRight className="h-3 w-3" />
                               </button>
@@ -1238,19 +1301,136 @@ export default function DashboardLobby() {
                 <button
                   type="button"
                   onClick={() => setQuickLogModalOpen(false)}
-                  className="rounded-2xl border border-slate-200 px-5 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="rounded-2xl border border-slate-200 px-5 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={quickSaving || !selectedPacienteId}
-                  className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 text-xs font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 disabled:opacity-50"
+                  className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 text-xs font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
-                  {quickSaving ? "Salvação..." : "Salvar Registro Agora"}
+                  {quickSaving ? "Salvando..." : "Salvar Registro Agora"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE RESIDENTES EM ATENÇÃO PRIORITÁRIA (Acesso Rápido 1-Toque) */}
+      {modalAtencaoOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl rounded-3xl bg-white p-6 md:p-8 shadow-2xl border border-slate-200/90 animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Header do Modal */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 font-black">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black tracking-tight text-slate-900">
+                    Atenção Prioritária ({pacientesAtencao.length})
+                  </h3>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">
+                    Residentes que registraram intercorrências ou alertas recentes.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalAtencaoOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
+                aria-label="Fechar Modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Lista de Residentes em Atenção */}
+            <div className="my-4 space-y-3 overflow-y-auto pr-1 flex-1">
+              {pacientesAtencao.map((paciente) => {
+                const ultimoAlerta = logs
+                  .filter((l) => l.pacienteId === paciente.id)
+                  .sort((a, b) => {
+                    const tsA = a.dataHora?.toDate ? a.dataHora.toDate().getTime() : 0;
+                    const tsB = b.dataHora?.toDate ? b.dataHora.toDate().getTime() : 0;
+                    return tsB - tsA;
+                  })[0];
+
+                const isCritico = paciente.statusSeguranca === "Vermelho";
+
+                return (
+                  <div
+                    key={paciente.id}
+                    onClick={() => {
+                      setModalAtencaoOpen(false);
+                      router.push(`/pacientes/${paciente.id}`);
+                    }}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-slate-200/90 bg-slate-50/70 hover:bg-white hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group active:scale-[0.99]"
+                    title={`Clique para abrir o prontuário de ${paciente.nome}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-100 text-blue-800 font-black text-sm group-hover:scale-105 transition-transform">
+                        {(paciente as any).fotoUrl ? (
+                          <img src={(paciente as any).fotoUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          paciente.nome.charAt(0)
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                            {paciente.nome}
+                          </p>
+                          <span className="text-xs font-semibold text-slate-400">
+                            • {paciente.idade} anos
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5 truncate">
+                          {ultimoAlerta
+                            ? `${ultimoAlerta.status} - ${ultimoAlerta.detalhe || ultimoAlerta.resumo || "Sem detalhes"}`
+                            : "Exige checagem no turno"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
+                          isCritico
+                            ? "bg-rose-100 text-rose-800 border border-rose-200"
+                            : "bg-amber-100 text-amber-800 border border-amber-200"
+                        }`}
+                      >
+                        {isCritico ? "Alerta Crítico" : "Atenção"}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform">
+                        Abrir Prontuário <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-400">
+                Toque em qualquer idoso para abrir o prontuário
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalAtencaoOpen(false);
+                  router.push("/rotina");
+                }}
+                className="rounded-xl bg-slate-900 hover:bg-blue-600 text-white px-4 py-2 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Ir para Rotina
+              </button>
+            </div>
           </div>
         </div>
       )}

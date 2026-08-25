@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import DashboardLayout from "../components/DashboardLayout";
@@ -11,7 +11,10 @@ import {
   Send,
   Clock,
   ChevronDown,
-  MessageSquare
+  MessageSquare,
+  AlertTriangle,
+  ArrowRight,
+  User,
 } from "lucide-react";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -19,6 +22,7 @@ import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy 
 import { useInstitucaoId, useInstitucaoData } from "../../lib/hooks";
 import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
 import { Paciente, InsightHistoryItem } from "../../lib/types";
+import { enriquecerPacientesComStatus } from "../../lib/statusSeguranca";
 
 export default function InsightsPage() {
   const [loading, setLoading] = useState(true);
@@ -161,6 +165,14 @@ export default function InsightsPage() {
     }
   };
 
+  const pacientesComStatus = useMemo(() => {
+    return enriquecerPacientesComStatus(pacientes, logs);
+  }, [pacientes, logs]);
+
+  const pacientesAtencao = useMemo(() => {
+    return pacientesComStatus.filter((p) => p.statusSeguranca !== "Verde");
+  }, [pacientesComStatus]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -172,7 +184,7 @@ export default function InsightsPage() {
   return (
     <DashboardLayout>
         <main className="mx-auto w-full max-w-5xl">
-          <header className="mb-10 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <header className="mb-8 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div>
               <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-indigo-700">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -185,7 +197,77 @@ export default function InsightsPage() {
             </div>
           </header>
 
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-6">
+            {/* Bloco Interativo: Residentes com Atenção / Alerta (1-Clique para Prontuário ou Prompt IA) */}
+            {pacientesAtencao.length > 0 && (
+              <div className="rounded-3xl border border-amber-200/90 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/40 p-5 md:p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2 text-amber-900 font-black text-sm md:text-base">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+                    <span>Residentes em Atenção Prioritária ({pacientesAtencao.length})</span>
+                  </div>
+                  <span className="text-xs text-amber-700 font-bold">
+                    Toque no card para abrir o prontuário ou formular consulta IA
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                  {pacientesAtencao.map((p) => {
+                    const isCritico = p.statusSeguranca === "Vermelho";
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => router.push(`/pacientes/${p.id}`)}
+                        className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-white border border-amber-200/90 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group active:scale-[0.98]"
+                        title={`Clique para abrir o prontuário de ${p.nome}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-amber-100 text-amber-900 font-black text-sm group-hover:scale-105 transition-transform">
+                            {(p as any).fotoUrl ? (
+                              <img src={(p as any).fotoUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              p.nome.charAt(0)
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                              {p.nome}
+                            </p>
+                            <span className="text-[10px] font-bold text-slate-400">
+                              {p.idade} anos
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                              isCritico
+                                ? "bg-rose-100 text-rose-800 border border-rose-200"
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}
+                          >
+                            {isCritico ? "Crítico" : "Atenção"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPrompt(`Gerar análise clínica detalhada e plano preventivo para ${p.nome} considerando os alertas recentes.`);
+                            }}
+                            className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold transition-colors cursor-pointer"
+                            title="Perguntar à IA sobre este idoso"
+                          >
+                            IA 🤖
+                          </button>
+                          <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {/* Input Section */}
             <div className="group relative rounded-3xl md:rounded-[2.5rem] bg-white p-2 shadow-xl shadow-indigo-900/5 transition-all duration-500 focus-within:shadow-indigo-500/20 focus-within:-translate-y-1">
               <div className="absolute -inset-[2px] rounded-3xl md:rounded-[2.6rem] bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 opacity-20 blur-sm transition-opacity duration-500 group-focus-within:opacity-60 group-focus-within:animate-pulse"></div>
