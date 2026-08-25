@@ -3,7 +3,23 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Users, Brain, LayoutDashboard, FolderHeart, Activity, LogOut, Plus, ChevronLeft, ChevronRight, Sparkles, User, Building2, ExternalLink } from "lucide-react";
+import {
+  Users,
+  Brain,
+  LayoutDashboard,
+  FolderHeart,
+  Activity,
+  LogOut,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  User,
+  Building2,
+  ExternalLink,
+  Menu,
+  X,
+} from "lucide-react";
 import { auth } from "../../lib/firebase";
 import { useInstitucaoId, useCuidadorData, useInstitucaoData } from "../../lib/hooks";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -16,6 +32,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [userName, setUserName] = useState("Cuidador");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -36,14 +53,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     });
     return () => unsubscribe();
   }, [router]);
+
+  // Fechar menus automaticamente ao navegar para uma nova rota
+  useEffect(() => {
+    setIsMobileDrawerOpen(false);
+    setIsProfileMenuOpen(false);
+  }, [pathname]);
+
+  // Bloquear scroll do body quando o menu lateral mobile estiver aberto
+  useEffect(() => {
+    if (isMobileDrawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileDrawerOpen]);
+
   const displayName = cuidador?.nomeCompleto || cuidador?.nome || userName;
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/");
-  };
-
-  const irParaCadastroPaciente = () => {
-    router.push("/pacientes/novo"); 
   };
 
   const menuItems = [
@@ -51,10 +84,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Prontuários", path: "/pacientes", icon: FolderHeart },
     { name: "Log de Rotina", path: "/rotina", icon: Activity },
     { name: "Insights IA", path: "/insights", icon: Brain },
-    ...(role === "Admin" ? [
-      { name: "Equipe", path: "/equipe", icon: Users },
-      { name: "Instituição", path: "/instituicao", icon: Building2 },
-    ] : []),
+    ...(role === "Admin"
+      ? [
+          { name: "Equipe", path: "/equipe", icon: Users },
+          { name: "Instituição", path: "/instituicao", icon: Building2 },
+        ]
+      : []),
     { name: "Meu Perfil", path: "/perfil", icon: User },
   ];
 
@@ -72,20 +107,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="flex h-screen print:h-auto print:block bg-slate-50 font-sans text-slate-900 overflow-hidden print:overflow-visible">
-
       {/* ═══════════════════════════════════════════════════════════
-          SIDEBAR — Desktop only (100% unchanged)
+          SIDEBAR — Desktop only
           ═══════════════════════════════════════════════════════════ */}
-      <aside className={`bg-slate-950 border-r border-slate-800 transition-all duration-300 hidden md:flex flex-col justify-between shadow-2xl shadow-slate-900/50 z-20 relative print:hidden ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
+      <aside
+        className={`bg-slate-950 border-r border-slate-800 transition-all duration-300 hidden md:flex flex-col justify-between shadow-2xl shadow-slate-900/50 z-20 relative print:hidden ${
+          isSidebarCollapsed ? "w-24" : "w-72"
+        }`}
+      >
         <div>
-          {/* Logo Brand Interativo com Brilho e Shimmer */}
+          {/* Logo Brand Interativo */}
           <div className="flex flex-col border-b border-white/5 cursor-default">
             <div className="flex items-center gap-4 px-6 py-6 h-[88px]">
               <Link
                 href="/dashboard"
                 className="relative group flex items-center gap-3 text-left focus:outline-none"
               >
-                {/* Ícone com Brilho Pulsante e Efeito Holográfico */}
                 <div className="relative w-12 h-12 shrink-0">
                   <div className="absolute inset-0 bg-blue-500/30 rounded-2xl blur-md group-hover:bg-indigo-500/50 transition-all duration-500 animate-pulse" />
                   <div className="relative w-12 h-12 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-900/50 group-hover:scale-105 group-hover:rotate-3 transition-transform duration-300">
@@ -115,7 +152,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <button
                   onClick={() => role === "Admin" && router.push("/instituicao")}
                   className={`w-full flex items-center gap-3 p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800/80 transition-all duration-300 ${
-                    role === "Admin" ? "hover:border-blue-500/50 hover:bg-slate-900 cursor-pointer group" : "cursor-default"
+                    role === "Admin"
+                      ? "hover:border-blue-500/50 hover:bg-slate-900 cursor-pointer group"
+                      : "cursor-default"
                   }`}
                   title={role === "Admin" ? "Configurar Instituição" : instNome}
                 >
@@ -142,9 +181,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             )}
           </div>
 
-          <button 
+          <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="absolute -right-3.5 top-[84px] bg-slate-800 border-2 border-slate-950 text-slate-400 hover:text-white rounded-full p-1.5 shadow-lg transition-transform hover:scale-110 z-30"
+            className="absolute -right-3.5 top-[84px] bg-slate-800 border-2 border-slate-950 text-slate-400 hover:text-white rounded-full p-1.5 shadow-lg transition-transform hover:scale-110 z-30 cursor-pointer"
           >
             {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
@@ -159,13 +198,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   key={item.name}
                   href={item.path}
                   title={isSidebarCollapsed ? item.name : ""}
-                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-4'} gap-4 py-3.5 rounded-2xl transition-all duration-200 font-bold text-sm select-none
-                    ${isActive 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 font-black' 
-                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'
-                    }`}
+                  className={`w-full flex items-center ${
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-start px-4"
+                  } gap-4 py-3.5 rounded-2xl transition-all duration-200 font-bold text-sm select-none ${
+                    isActive
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 font-black"
+                      : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                  }`}
                 >
-                  <Icon className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <Icon
+                    className={`w-5 h-5 shrink-0 transition-colors ${
+                      isActive ? "text-white" : "text-slate-400"
+                    }`}
+                  />
                   {!isSidebarCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
                 </Link>
               );
@@ -181,42 +226,196 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               className="w-full flex items-center gap-3.5 px-3.5 py-3 bg-slate-900/90 hover:bg-slate-900 rounded-2xl border border-slate-800/80 text-left transition-all group cursor-pointer"
               title="Acessar Meu Perfil"
             >
-               <div className="h-10 w-10 rounded-xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm uppercase shrink-0 border border-blue-400/30 shadow-md group-hover:border-blue-400">
-                  {fotoUrl ? (
-                    <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
-                  ) : (
-                    <User className="w-5 h-5 text-white" />
-                  )}
-               </div>
-               <div className="truncate text-left flex-1">
-                 <p className="text-xs font-black text-white truncate group-hover:text-blue-400 transition-colors">{displayName}</p>
-                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">{role === "Admin" ? "Administrador" : "Cuidador"}</p>
-               </div>
+              <div className="h-10 w-10 rounded-xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm uppercase shrink-0 border border-blue-400/30 shadow-md group-hover:border-blue-400">
+                {fotoUrl ? (
+                  <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+                ) : (
+                  <User className="w-5 h-5 text-white" />
+                )}
+              </div>
+              <div className="truncate text-left flex-1">
+                <p className="text-xs font-black text-white truncate group-hover:text-blue-400 transition-colors">
+                  {displayName}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">
+                  {role === "Admin" ? "Administrador" : "Cuidador"}
+                </p>
+              </div>
             </Link>
           )}
-          <button 
-            onClick={handleLogout} 
+          <button
+            onClick={handleLogout}
             title={isSidebarCollapsed ? "Encerrar Sessão" : ""}
-            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-start px-3.5'} gap-3.5 py-3 text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-950/30 rounded-2xl transition-all group border border-transparent hover:border-red-900/40`}
+            className={`w-full flex items-center ${
+              isSidebarCollapsed ? "justify-center px-0" : "justify-start px-3.5"
+            } gap-3.5 py-3 text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-950/30 rounded-2xl transition-all group border border-transparent hover:border-red-900/40 cursor-pointer`}
           >
             <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 group-hover:bg-red-600 group-hover:text-white transition-all shrink-0 border border-red-500/20">
               <LogOut className="w-4.5 h-4.5" />
             </div>
-            {!isSidebarCollapsed && <span className="whitespace-nowrap font-black text-slate-300 group-hover:text-red-400">Encerrar Sessão</span>}
+            {!isSidebarCollapsed && (
+              <span className="whitespace-nowrap font-black text-slate-300 group-hover:text-red-400">
+                Encerrar Sessão
+              </span>
+            )}
           </button>
         </div>
       </aside>
 
       {/* ═══════════════════════════════════════════════════════════
+          MOBILE SLIDE-OVER SIDEBAR DRAWER (Full Menu on Mobile)
+          ═══════════════════════════════════════════════════════════ */}
+      {isMobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          {/* Backdrop Escuro com Blur */}
+          <div
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            onClick={() => setIsMobileDrawerOpen(false)}
+          />
+
+          {/* Drawer Lateral Deslizante */}
+          <aside className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-slate-950 text-white flex flex-col justify-between p-5 shadow-2xl z-10 animate-in slide-in-from-left duration-300 border-r border-slate-800/80 overflow-y-auto">
+            <div>
+              {/* Header do Drawer: Logo + Botão Fechar */}
+              <div className="flex items-center justify-between pb-5 border-b border-slate-800">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setIsMobileDrawerOpen(false)}
+                  className="flex items-center gap-3"
+                >
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/50">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-white leading-tight">Vitalidade AI</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">
+                      IA Assistencial
+                    </p>
+                  </div>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => setIsMobileDrawerOpen(false)}
+                  className="h-10 w-10 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white active:scale-95 transition-all cursor-pointer"
+                  aria-label="Fechar Menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Card da Instituição no Drawer */}
+              <div className="mt-4">
+                <div
+                  onClick={() => {
+                    if (role === "Admin") {
+                      router.push("/instituicao");
+                      setIsMobileDrawerOpen(false);
+                    }
+                  }}
+                  className={`flex items-center gap-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800 ${
+                    role === "Admin" ? "cursor-pointer active:bg-slate-800" : ""
+                  }`}
+                >
+                  <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center text-slate-300 font-bold text-xs shrink-0 border border-slate-700">
+                    {instLogoUrl ? (
+                      <img src={instLogoUrl} alt={instNome} className="h-full w-full object-cover" />
+                    ) : (
+                      <Building2 className="w-4 h-4 text-blue-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-slate-200 truncate">{instNome}</p>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {role === "Admin" ? "Configurar Unidade" : "Unidade Ativa"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista Completa de Itens do Menu Mobile */}
+              <nav className="mt-5 space-y-1.5">
+                {menuItems.map((item) => {
+                  const isActive = isActivePath(item.path);
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.path}
+                      onClick={() => setIsMobileDrawerOpen(false)}
+                      className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-150 touch-manipulation select-none ${
+                        isActive
+                          ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50 font-black scale-[1.01]"
+                          : "text-slate-300 hover:bg-slate-900 hover:text-white active:bg-slate-900"
+                      }`}
+                    >
+                      <Icon
+                        className={`w-5 h-5 shrink-0 ${isActive ? "text-white" : "text-slate-400"}`}
+                      />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Rodapé do Drawer: Perfil + Botão Logout */}
+            <div className="pt-5 border-t border-slate-800/80 space-y-3 mt-6">
+              <Link
+                href="/perfil"
+                onClick={() => setIsMobileDrawerOpen(false)}
+                className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900 border border-slate-800 text-left active:bg-slate-800 transition-colors"
+              >
+                <div className="h-10 w-10 rounded-xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm uppercase shrink-0 border border-blue-400/30">
+                  {fotoUrl ? (
+                    <img src={fotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+                  ) : (
+                    <User className="w-5 h-5 text-white" />
+                  )}
+                </div>
+                <div className="truncate flex-1">
+                  <p className="text-xs font-black text-white truncate">{displayName}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {role === "Admin" ? "Administrador" : "Cuidador"}
+                  </p>
+                </div>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileDrawerOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black text-red-400 hover:bg-red-950/40 bg-red-950/20 border border-red-900/30 active:scale-95 transition-all cursor-pointer"
+              >
+                <LogOut className="w-4.5 h-4.5 text-red-400" />
+                Encerrar Sessão
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════
           MAIN CONTENT AREA
           ═══════════════════════════════════════════════════════════ */}
       <div className="flex-1 flex flex-col overflow-y-auto print:overflow-visible relative print:block">
+        {/* ── MOBILE HEADER (Com Botão Hambúrguer ☰) ────────────────────────── */}
+        <header className="md:hidden ios-header sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-slate-100/80 px-4 py-3 flex items-center justify-between transition-all">
+          {/* Lado Esquerdo: Botão Menu Hambúrguer + Marca Vitality AI */}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsMobileDrawerOpen(true)}
+              className="flex items-center justify-center h-10 w-10 rounded-2xl bg-slate-100/90 hover:bg-slate-200 text-slate-800 border border-slate-200/80 active:scale-95 transition-all touch-manipulation cursor-pointer shrink-0"
+              aria-label="Abrir Menu Lateral"
+              title="Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
 
-        {/* ── NEW TOP HEADER (Branding & Minimalist Focus — Mobile Only) ─────── */}
-        <header className="md:hidden ios-header sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100/80 px-4 py-3 flex items-center justify-between transition-all">
-          {/* Lado Esquerdo: Marca Vitality AI interativa + Logo da Instituição */}
-          <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => router.push("/dashboard")}
               className="flex items-center gap-2 text-left group active:opacity-75 transition-opacity"
             >
@@ -229,9 +428,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </button>
           </div>
 
-          {/* Lado Direito: Logo da Instituição + Avatar do Cuidador */}
-          <div className="flex items-center gap-2.5">
-            {/* Logo da Instituição no Mobile Header */}
+          {/* Lado Direito: Logo da Instituição + Avatar */}
+          <div className="flex items-center gap-2">
             <div
               onClick={() => role === "Admin" && router.push("/instituicao")}
               className="h-8 w-8 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 shadow-xs cursor-pointer"
@@ -243,9 +441,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Building2 className="h-4 w-4 text-blue-600" />
               )}
             </div>
+
             <button
               onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-              className="w-9 h-9 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-semibold text-xs shadow-xs active:scale-95 transition-transform"
+              className="w-9 h-9 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-semibold text-xs shadow-xs active:scale-95 transition-transform cursor-pointer"
               aria-label="Menu do Perfil"
               title="Menu do Perfil"
             >
@@ -257,14 +456,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </button>
           </div>
 
-          {/* Menu Dropdown Popover do Perfil */}
+          {/* Menu Dropdown Popover do Perfil no Mobile */}
           {isProfileMenuOpen && (
             <>
-              <div 
+              <div
                 className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-xs md:hidden"
                 onClick={() => setIsProfileMenuOpen(false)}
               />
-              <div className="absolute right-4 top-12 z-50 w-72 rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 md:hidden">
+              <div className="absolute right-4 top-14 z-50 w-72 rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 md:hidden">
                 <div className="flex items-center gap-3 p-2 pb-3 border-b border-slate-100">
                   <div className="h-10 w-10 rounded-2xl overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-sm font-semibold shadow-xs">
                     {fotoUrl ? (
@@ -331,9 +530,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           )}
         </header>
 
-        {/* ── DESKTOP NAVBAR — Topo com Logo da Instituição & Ações ──────── */}
+        {/* ── DESKTOP NAVBAR — Topo Desktop ──────── */}
         <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 px-6 py-3.5 transition-all hidden md:flex justify-between items-center print:hidden">
-          {/* Badge da Instituição Ativa no topo desktop */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/80 rounded-2xl px-3.5 py-1.5 shadow-2xs">
               <div className="h-7 w-7 rounded-lg overflow-hidden bg-white flex items-center justify-center border border-slate-200 text-blue-600 shrink-0">
@@ -344,15 +542,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 )}
               </div>
               <div>
-                <span className="text-xs font-extrabold text-slate-900 block leading-tight">{instNome}</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Unidade Ativa</span>
+                <span className="text-xs font-extrabold text-slate-900 block leading-tight">
+                  {instNome}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Unidade Ativa
+                </span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             {(pathname === "/pacientes" || pathname.startsWith("/pacientes/")) && (
-              <Link 
+              <Link
                 href="/pacientes/novo"
                 className="px-6 py-3 bg-blue-600 text-white text-sm font-black rounded-full hover:bg-blue-700 hover:-translate-y-0.5 shadow-lg shadow-blue-600/30 transition-all active:scale-95 hidden sm:flex items-center gap-2"
               >
@@ -362,7 +564,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </nav>
 
-        {/* ── CHILDREN RENDER — pb-28 em mobile para a Tab Bar não cobrir conteúdo ── */}
+        {/* ── CHILDREN RENDER ── */}
         <main className="max-w-7xl mx-auto w-full px-4 md:px-6 py-6 md:py-10 pb-28 md:pb-10 print:py-0 print:px-0">
           {children}
         </main>
@@ -371,7 +573,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* ═══════════════════════════════════════════════════════════
           iOS BOTTOM TAB BAR — Fixed Solid Blur (Mobile Only)
           ═══════════════════════════════════════════════════════════ */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 pb-safe print:hidden shadow-lg shadow-slate-900/5">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 pb-safe print:hidden shadow-lg shadow-slate-900/5">
         <div className="flex items-center justify-around px-1 pt-2 pb-1">
           {tabItems.map((tab) => {
             const active = isActivePath(tab.path);
@@ -380,7 +582,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Link
                 key={tab.path}
                 href={tab.path}
-                className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] flex-1 ios-press relative"
+                className="flex flex-col items-center justify-center gap-0.5 min-h-[48px] min-w-[48px] flex-1 ios-press relative touch-manipulation"
               >
                 <Icon
                   className={`h-[22px] w-[22px] transition-colors duration-200 ${
@@ -395,7 +597,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 >
                   {tab.label}
                 </span>
-                {/* Active indicator dot — iOS style */}
                 {active && (
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] w-5 rounded-full bg-blue-600" />
                 )}
@@ -405,8 +606,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </nav>
 
-      {/* Widget Flutuante da IA (Chatbot no canto inferior direito) */}
+      {/* Widget Flutuante da IA */}
       <AiInsightsWidget />
     </div>
   );
 }
+

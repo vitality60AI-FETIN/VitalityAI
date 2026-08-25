@@ -309,16 +309,16 @@ export default function AiInsightsWidget() {
       {/* ═══════════════════════════════════════════════════════════
           FAB — Botão Flutuante Clean (Canto Inferior Direito)
           ═══════════════════════════════════════════════════════════ */}
-      <div className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-50 flex flex-col items-end pointer-events-auto print:hidden">
+      <div className="fixed bottom-20 right-3.5 md:bottom-8 md:right-8 z-40 flex flex-col items-end pointer-events-none print:hidden">
         {/* Tooltip Clean */}
         {showTooltip && !isOpen && (
-          <div className="mb-3 animate-bounce">
+          <div className="mb-3 animate-bounce pointer-events-auto">
             <div className="bg-slate-900 text-white text-xs font-semibold py-2 px-3.5 rounded-2xl shadow-xl flex items-center gap-2 max-w-[220px]">
               <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>Dúvida sobre os idosos? Fale com a IA 🤖</span>
               <button
                 onClick={() => setShowTooltip(false)}
-                className="ml-1 text-slate-400 hover:text-white"
+                className="ml-1 text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -329,7 +329,7 @@ export default function AiInsightsWidget() {
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
-            className="group relative flex items-center justify-center w-14 h-14 rounded-full bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 hover:scale-105 transition-all duration-300 active:scale-95"
+            className="group pointer-events-auto relative flex items-center justify-center w-14 h-14 rounded-full bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 hover:scale-105 transition-all duration-300 active:scale-95 touch-manipulation cursor-pointer"
             aria-label="Abrir Assistente Vitality AI"
             title="Vitality AI"
           >
