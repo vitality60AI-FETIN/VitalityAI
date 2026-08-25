@@ -48,7 +48,7 @@ import {
 import { normalizeLogRecords, NormalizedLogRecord } from "../../lib/logNormalizer";
 import { Paciente } from "../../lib/types";
 import { enriquecerPacientesComStatus } from "../../lib/statusSeguranca";
-import { ACTIVITY_TYPES, ActivityType } from "../../lib/activityTypes";
+import { ACTIVITY_TYPES, ActivityType, useAllActivityTypes } from "../../lib/activityTypes";
 
 interface DashboardAlert extends NormalizedLogRecord {
   pacienteNome: string;
@@ -314,12 +314,17 @@ export default function DashboardLobby() {
       const id = `${p.id}-${h.hora}-${h.tipo}`;
 
       // Verificar se esta tarefa já possui registro real de execução hoje no Firestore
-      const jaConcluidaNoBanco = logs.some(
-        (l) =>
-          l.pacienteId === p.id &&
-          l.tipo === h.tipo &&
-          (l.dataTurno === hojeStr || (l.dataHora?.toDate && l.dataHora.toDate().toISOString().slice(0, 10) === hojeStr))
-      );
+      const jaConcluidaNoBanco = logs.some((l) => {
+        if (l.pacienteId !== p.id) return false;
+        const dStr = l.dataTurno || (l.dataHora?.toDate ? l.dataHora.toDate().toISOString().slice(0, 10) : "");
+        if (dStr !== hojeStr) return false;
+
+        if (l.tipo === h.tipo) return true;
+        if (h.tipo === "alimentacao" && (l.tipo === "cafe_manha" || l.tipo === "almoco" || l.tipo === "jantar" || l.tipo === "lanche_tarde")) return true;
+        if (h.tipo === "medicacao" && (l.tipo === "medicacao_manha" || l.tipo === "medicacao_tarde" || l.tipo === "medicacao_noite")) return true;
+        if (h.tipo === "hidratacao" && l.tipo === "hidratacao_manha") return true;
+        return false;
+      });
 
       tarefas.push({
         id,
@@ -1188,7 +1193,7 @@ export default function DashboardLobby() {
                   }}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:bg-white transition-all"
                 >
-                  {Object.values(ACTIVITY_TYPES).map((opt) => (
+                  {useAllActivityTypes().map((opt) => (
                     <option key={opt.id} value={opt.id}>
                       {opt.label}
                     </option>

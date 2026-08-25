@@ -1,23 +1,32 @@
 "use client";
 
-import { useMemo } from "react";
-import { StickyNote, Check, Circle, AlertCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { StickyNote, Check, Clock, Sparkles, CheckCircle2, Loader2, Save } from "lucide-react";
 import { ACTIVITY_TYPES, ActivityType } from "@/lib/activityTypes";
+
+interface SavedRecordInfo {
+  status: string;
+  detalhe?: string;
+  horaFormatada?: string;
+}
 
 interface ActivitySectionProps {
   tipo: ActivityType;
-  selectedStatus: string; // Pode ser string simples (ex: "Comeu Tudo") ou valores separados por vírgula (ex: "Caminhada, Fisioterapia")
+  selectedStatus: string; // Pode ser string simples (ex: "Comeu Tudo") ou valores separados por vírgula
   onOptionClick: (newStatus: string) => void;
   detailValue: string;
   onDetailChange: (value: string) => void;
+  savedInfo?: SavedRecordInfo | null;
+  onSaveSingle?: () => Promise<void> | void;
+  savingSingle?: boolean;
 }
 
 /**
- * ActivitySection - Componente refatorado de Registro de Atividade com suporte a:
- * • Seleção múltipla (Multi-select) para categorias cumulativas
- * • Seleção única (Single-select) para categorias exclusivas
- * • Regra de exclusividade para opções negativas ("Não realizada", "Recusou")
- * • Layout anti-corte de texto e feedback visual de estado instantâneo
+ * ActivitySection - Componente intuitivo de Registro de Atividade de Rotina
+ * • Seleção rápida com chips tácteis
+ * • Sugestões contextuais de 1 toque (ex: "Pão e café com leite", "No chuveiro com auxílio")
+ * • Botão de salvamento direto item a item (ex: salvar só o café da manhã)
+ * • Indicador de status salvo no dia
  */
 export default function ActivitySection({
   tipo,
@@ -25,8 +34,11 @@ export default function ActivitySection({
   onOptionClick,
   detailValue,
   onDetailChange,
+  savedInfo,
+  onSaveSingle,
+  savingSingle = false,
 }: ActivitySectionProps) {
-  const config = ACTIVITY_TYPES[tipo] || ACTIVITY_TYPES.atividade_fisica;
+  const config = ACTIVITY_TYPES[tipo] || ACTIVITY_TYPES.cafe_manha || ACTIVITY_TYPES.alimentacao;
   const IconComponent = config.icon;
   const isMultiSelect = Boolean(config.isMultiSelect);
 
@@ -50,7 +62,6 @@ export default function ActivitySection({
       value === "Não administrada";
 
     if (!isMultiSelect) {
-      // Single-select: alterna a seleção ou escolhe novo valor
       if (selectedList.length === 1 && selectedList[0] === value) {
         onOptionClick("");
       } else {
@@ -59,9 +70,7 @@ export default function ActivitySection({
       return;
     }
 
-    // Multi-select logic:
     if (isExclusiveOption) {
-      // Se clicou na opção neutra/exclusiva, limpa todas as outras e marca apenas ela
       if (selectedList.includes(value)) {
         onOptionClick("");
       } else {
@@ -70,7 +79,6 @@ export default function ActivitySection({
       return;
     }
 
-    // Se é uma opção positiva de incidente/atividade: remove qualquer opção exclusiva/neutra prévia
     let currentFiltered = selectedList.filter(
       (v) =>
         v !== "Sem intercorrências" &&
@@ -90,85 +98,68 @@ export default function ActivitySection({
     onOptionClick(currentFiltered.join(", "));
   };
 
-  // Status visual no cabeçalho do Card
-  const renderStatusLegend = () => {
-    if (selectedList.length === 0) {
-      return (
-        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400">
-          Nenhuma opção marcada ainda
-        </span>
-      );
+  const handleApplySuggestion = (sugestao: string) => {
+    if (!detailValue) {
+      onDetailChange(sugestao);
+    } else if (!detailValue.includes(sugestao)) {
+      onDetailChange(`${detailValue}, ${sugestao}`);
     }
-
-    if (selectedList.length === 1) {
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100/80 px-2.5 py-0.5 text-xs font-bold text-blue-700">
-          <Check className="h-3.5 w-3.5 stroke-[3]" />
-          {selectedList[0]}
-        </span>
-      );
-    }
-
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100/90 px-2.5 py-0.5 text-xs font-bold text-purple-800">
-        <Check className="h-3.5 w-3.5 stroke-[3]" />
-        {selectedList.length} selecionadas ({selectedList.join(", ")})
-      </span>
-    );
   };
 
   return (
-    <div className="group rounded-2xl md:rounded-[2rem] border border-slate-200/90 bg-white p-3.5 md:p-5 shadow-sm shadow-slate-200/40 transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-900/5">
+    <div
+      className={`group rounded-3xl md:rounded-[2rem] border p-4 md:p-5 transition-all duration-300 ${
+        savedInfo
+          ? "border-emerald-200/90 bg-emerald-50/20 shadow-xs"
+          : selectedList.length > 0
+          ? "border-blue-300 bg-blue-50/10 shadow-md shadow-blue-500/5 ring-2 ring-blue-500/10"
+          : "border-slate-200/90 bg-white hover:border-blue-200 hover:shadow-lg shadow-xs"
+      }`}
+    >
       {/* Header do Card */}
-      <div className="mb-3.5 md:mb-5 flex items-start gap-3 md:gap-4">
-        <div
-          className={`flex h-10 w-10 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-xl md:rounded-[1.25rem] transition-colors ${config.bgColor} ${config.textColor}`}
-        >
-          <IconComponent className="h-5 w-5 md:h-6 md:w-6" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-              {config.label}
-            </h3>
-            {isMultiSelect && (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                Seleção Múltipla
-              </span>
-            )}
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 md:gap-3.5 min-w-0">
+          <div
+            className={`flex h-11 w-11 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-2xl transition-colors ${config.bgColor} ${config.textColor}`}
+          >
+            <IconComponent className="h-5 w-5 md:h-6 md:w-6" />
           </div>
 
-          <p className="text-xs md:text-sm text-slate-600 mt-0.5">
-            {tipo === "hidratacao"
-              ? "Quanto foi ingerido neste turno?"
-              : tipo === "alimentacao"
-              ? "Qual foi o nível de aceitação da refeição?"
-              : tipo === "medicacao"
-              ? "Confirmação da administração dos fármacos"
-              : tipo === "atividade_fisica"
-              ? "Marque todas as atividades físicas realizadas"
-              : tipo === "higiene"
-              ? "Marque todos os cuidados de higiene prestados"
-              : tipo === "sono"
-              ? "Como se comportou o sono e descanso?"
-              : tipo === "cognitivo"
-              ? "Marque as características mentais observadas"
-              : tipo === "incidente"
-              ? "Registre quaisquer intercorrências ou queixas"
-              : tipo === "social"
-              ? "Interações e atividades sociais realizadas"
-              : tipo === "humor"
-              ? "Estado emocional e humor observados"
-              : "Registre os itens do turno"}
-          </p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm md:text-base font-black text-slate-900 tracking-tight">
+                {config.label}
+              </h3>
+              {config.horarioSugerido && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600">
+                  <Clock className="h-3 w-3 text-slate-400" />
+                  {config.horarioSugerido}
+                </span>
+              )}
+              {isMultiSelect && (
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                  Multi-seleção
+                </span>
+              )}
+            </div>
 
-          <div className="mt-2">{renderStatusLegend()}</div>
+            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+              {config.sublabel || "Registre o status correspondente"}
+            </p>
+          </div>
         </div>
+
+        {/* Badge se já salvo hoje */}
+        {savedInfo && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-extrabold text-emerald-800 shrink-0">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            Salvo Hoje
+          </span>
+        )}
       </div>
 
-      {/* Grid Flex de Chips sem Corte de Texto — Apple HIG Spring Style */}
-      <div className="flex flex-wrap gap-2.5">
+      {/* Grid de Opções Rápidas (Chips) */}
+      <div className="flex flex-wrap gap-2">
         {config.options.map((option) => {
           const isSelected = selectedList.includes(option.value);
           const isSemIntercorrencia = option.value === "Sem intercorrências";
@@ -179,51 +170,102 @@ export default function ActivitySection({
             option.value === "Nenhuma";
 
           const activeStyle = isSemIntercorrencia
-            ? "border-emerald-500 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 scale-[1.02]"
+            ? "border-emerald-500 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/20 font-black scale-[1.01]"
             : isNegative
-            ? "border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20 scale-[1.02]"
-            : "border-blue-600 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/25 scale-[1.02]";
+            ? "border-amber-400 bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20 font-black scale-[1.01]"
+            : "border-blue-600 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/20 font-black scale-[1.01]";
 
-          const inactiveStyle = `border-slate-200/80 ${config.bgColor} ${config.textColor} ${config.hoverColor} hover:border-slate-300 hover:shadow-xs`;
+          const inactiveStyle = `border-slate-200 bg-slate-50/70 text-slate-700 hover:bg-slate-100 hover:border-slate-300 font-bold`;
 
           return (
             <button
               key={option.value}
               type="button"
               onClick={() => handleToggleOption(option.value)}
-              className={`apple-chip-spring flex items-center gap-2.5 rounded-xl md:rounded-2xl border px-3.5 md:px-4 py-3 text-xs md:text-sm font-bold transition-all duration-200 touch-manipulation select-none cursor-pointer min-h-[44px] ${
+              className={`flex items-center gap-2 rounded-xl md:rounded-2xl border px-3.5 py-2.5 text-xs md:text-sm transition-all duration-200 cursor-pointer touch-manipulation select-none ${
                 isSelected ? activeStyle : inactiveStyle
               }`}
             >
               <span
-                className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border transition-all duration-300 pointer-events-none ${
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
                   isSelected
-                    ? "border-white bg-white text-blue-700 shadow-xs scale-110"
-                    : "border-current opacity-40"
+                    ? "border-white bg-white text-blue-700 shadow-xs scale-105"
+                    : "border-current opacity-30"
                 }`}
               >
-                {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
               </span>
-              <span className="whitespace-normal text-left pointer-events-none">{option.label}</span>
+              <span>{option.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Campo de Detalhe Rápido */}
-      <div className="mt-3.5 md:mt-5 rounded-xl md:rounded-2xl border border-slate-100 bg-slate-50/80 p-3 md:p-4 transition-colors group-hover:bg-slate-50">
-        <label className="mb-2.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-          <StickyNote className="h-3.5 w-3.5 text-slate-400" />
-          Observação / Detalhe Rápido
-        </label>
+      {/* Campo de Detalhes / "O que comeu?" / Sugestões rápidas */}
+      <div className="mt-3.5 rounded-2xl border border-slate-100 bg-slate-50/80 p-3 md:p-3.5">
+        <div className="mb-2 flex items-center justify-between">
+          <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
+            <StickyNote className="h-3.5 w-3.5 text-slate-400" />
+            {config.detailLabel || "O que foi consumido / Observação"}
+          </label>
+        </div>
+
         <input
           type="text"
           value={detailValue}
           onChange={(e) => onDetailChange(e.target.value)}
           placeholder={config.detailPlaceholder}
-          className="w-full rounded-xl md:rounded-2xl border-2 border-slate-200/80 bg-white px-3 md:px-4 py-2.5 md:py-3 text-sm font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-blue-500 focus:shadow-md focus:shadow-blue-500/10"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs md:text-sm font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
+
+        {/* Tags de Sugestão Rápida em 1 Toque */}
+        {config.sugestoesRapidas && config.sugestoesRapidas.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 mr-1">
+              <Sparkles className="h-3 w-3 text-amber-500" /> Sugestões:
+            </span>
+            {config.sugestoesRapidas.map((sugestao) => (
+              <button
+                key={sugestao}
+                type="button"
+                onClick={() => handleApplySuggestion(sugestao)}
+                className="rounded-lg bg-white border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/50 transition-all shadow-2xs"
+              >
+                + {sugestao}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Botão Opcional de Salvamento Rápido Individual */}
+      {onSaveSingle && (
+        <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <p className="text-[11px] font-medium text-slate-400 truncate">
+            {savedInfo ? `Gravado hoje: ${savedInfo.status}` : "Pode salvar agora ou concluir o turno"}
+          </p>
+
+          <button
+            type="button"
+            onClick={onSaveSingle}
+            disabled={savingSingle || selectedList.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-slate-900 text-white px-3.5 py-1.5 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer disabled:cursor-not-allowed"
+          >
+            {savingSingle ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Save className="h-3.5 w-3.5" />
+                Salvar {config.label.split(" ")[0]}
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
+
