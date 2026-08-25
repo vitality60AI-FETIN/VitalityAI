@@ -108,16 +108,13 @@ export default function LogRotinaPage() {
   const [salvandoTurno, setSalvandoTurno] = useState(false);
   const [savingSingleKey, setSavingSingleKey] = useState<string | null>(null);
 
-  // Período de visualização ativo (Manhã, Tarde, Noite, Geral ou Todos)
+  // Período de visualização ativo (padrão: "todos" para exibir todo o dia livremente)
   const [periodoFiltro, setPeriodoFiltro] = useState<RoutinePeriod | "todos">("todos");
+  // Período individual por paciente (se quiser focar em um período específico para um idoso)
+  const [pacientePeriodo, setPacientePeriodo] = useState<Record<string, RoutinePeriod | "todos">>({});
 
   const router = useRouter();
   const { instituicaoId, loading: loadingInstituicao } = useInstitucaoId();
-
-  // Definir período inicial baseado no horário do dia do cliente
-  useEffect(() => {
-    setPeriodoFiltro(getPeriodoAtual());
-  }, []);
 
   // Escutar Pacientes e LogsRotina em TEMPO REAL (onSnapshot)
   useEffect(() => {
@@ -728,31 +725,63 @@ export default function LogRotinaPage() {
                             </span>
                           </div>
 
-                          {/* Badges de Progresso Cronológico do Dia */}
+                          {/* Badges de Progresso Cronológico do Dia (Clicáveis) */}
                           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                              logsManha > 0 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-slate-100 text-slate-400"
-                            }`}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpanded((s) => ({ ...s, [paciente.id]: true }));
+                                setPacientePeriodo((s) => ({ ...s, [paciente.id]: "manha" }));
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold cursor-pointer transition-all hover:scale-105 ${
+                                logsManha > 0 ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-slate-100 text-slate-500 hover:bg-amber-50"
+                              }`}
+                            >
                               <Sun className="h-3 w-3" /> Manhã: {logsManha}/4
-                            </span>
+                            </button>
 
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                              logsTarde > 0 ? "bg-sky-100 text-sky-800 border border-sky-200" : "bg-slate-100 text-slate-400"
-                            }`}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpanded((s) => ({ ...s, [paciente.id]: true }));
+                                setPacientePeriodo((s) => ({ ...s, [paciente.id]: "tarde" }));
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold cursor-pointer transition-all hover:scale-105 ${
+                                logsTarde > 0 ? "bg-sky-100 text-sky-800 border border-sky-200" : "bg-slate-100 text-slate-500 hover:bg-sky-50"
+                              }`}
+                            >
                               <Sunset className="h-3 w-3" /> Tarde: {logsTarde}/5
-                            </span>
+                            </button>
 
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                              logsNoite > 0 ? "bg-indigo-100 text-indigo-800 border border-indigo-200" : "bg-slate-100 text-slate-400"
-                            }`}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpanded((s) => ({ ...s, [paciente.id]: true }));
+                                setPacientePeriodo((s) => ({ ...s, [paciente.id]: "noite" }));
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold cursor-pointer transition-all hover:scale-105 ${
+                                logsNoite > 0 ? "bg-indigo-100 text-indigo-800 border border-indigo-200" : "bg-slate-100 text-slate-500 hover:bg-indigo-50"
+                              }`}
+                            >
                               <Moon className="h-3 w-3" /> Noite: {logsNoite}/4
-                            </span>
+                            </button>
 
-                            {logsGeral > 0 && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200 px-2.5 py-0.5 text-[10px] font-bold">
-                                📋 {logsGeral} alerta(s)
-                              </span>
-                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpanded((s) => ({ ...s, [paciente.id]: true }));
+                                setPacientePeriodo((s) => ({ ...s, [paciente.id]: "geral" }));
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold cursor-pointer transition-all hover:scale-105 ${
+                                logsGeral > 0 ? "bg-rose-100 text-rose-800 border border-rose-200" : "bg-slate-100 text-slate-500 hover:bg-rose-50"
+                              }`}
+                            >
+                              📋 Geral {logsGeral > 0 ? `(${logsGeral})` : ""}
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -794,41 +823,153 @@ export default function LogRotinaPage() {
                     {/* Conteúdo Expandido do Card do Residente */}
                     {isExpanded && (
                       <div className="border-t border-slate-100 bg-slate-50/50 p-4 md:p-6 space-y-6">
-                        {/* Grid de Atividades do Período */}
-                        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-                          {atividadesParaExibir.map((activityConfig) => {
-                            const tipo = activityConfig.id as ActivityType;
-                            const draftItem = draft.atividades[tipo] || { status: "", detail: "" };
-                            const logSalvo = mapaLogsHoje[tipo];
+                        {/* Seletor de Período Rápido do Paciente */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+                          <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-blue-600" />
+                            Visualizando:
+                          </span>
 
-                            const savedInfo = logSalvo
-                              ? {
-                                  status: logSalvo.status,
-                                  detalhe: logSalvo.detalhe,
-                                }
-                              : null;
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPacientePeriodo((prev) => ({ ...prev, [paciente.id]: "todos" }))
+                              }
+                              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                                (pacientePeriodo[paciente.id] ?? periodoFiltro) === "todos"
+                                  ? "bg-slate-900 text-white shadow-xs"
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                              }`}
+                            >
+                              ✨ Todos os Horários
+                            </button>
 
-                            const savingSingle = savingSingleKey === `${paciente.id}_${tipo}`;
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPacientePeriodo((prev) => ({ ...prev, [paciente.id]: "manha" }))
+                              }
+                              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                                (pacientePeriodo[paciente.id] ?? periodoFiltro) === "manha"
+                                  ? "bg-amber-500 text-white shadow-xs"
+                                  : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                              }`}
+                            >
+                              ☀️ Manhã
+                            </button>
 
-                            return (
-                              <ActivitySection
-                                key={tipo}
-                                tipo={tipo}
-                                selectedStatus={draftItem.status}
-                                onOptionClick={(status: string) =>
-                                  atualizarDraft(paciente.id, tipo, "status", status)
-                                }
-                                detailValue={draftItem.detail}
-                                onDetailChange={(value: string) =>
-                                  atualizarDraft(paciente.id, tipo, "detail", value)
-                                }
-                                savedInfo={savedInfo}
-                                onSaveSingle={() => salvarItemIndividual(paciente, tipo)}
-                                savingSingle={savingSingle}
-                              />
-                            );
-                          })}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPacientePeriodo((prev) => ({ ...prev, [paciente.id]: "tarde" }))
+                              }
+                              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                                (pacientePeriodo[paciente.id] ?? periodoFiltro) === "tarde"
+                                  ? "bg-sky-600 text-white shadow-xs"
+                                  : "bg-sky-50 text-sky-800 hover:bg-sky-100"
+                              }`}
+                            >
+                              🌤️ Tarde
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPacientePeriodo((prev) => ({ ...prev, [paciente.id]: "noite" }))
+                              }
+                              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                                (pacientePeriodo[paciente.id] ?? periodoFiltro) === "noite"
+                                  ? "bg-indigo-600 text-white shadow-xs"
+                                  : "bg-indigo-50 text-indigo-800 hover:bg-indigo-100"
+                              }`}
+                            >
+                              🌙 Noite
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPacientePeriodo((prev) => ({ ...prev, [paciente.id]: "geral" }))
+                              }
+                              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                                (pacientePeriodo[paciente.id] ?? periodoFiltro) === "geral"
+                                  ? "bg-rose-600 text-white shadow-xs"
+                                  : "bg-rose-50 text-rose-800 hover:bg-rose-100"
+                              }`}
+                            >
+                              📋 Geral
+                            </button>
+                          </div>
                         </div>
+
+                        {/* Blocos de Atividades (Separados por Período quando 'todos', ou direto) */}
+                        {(() => {
+                          const activePer = pacientePeriodo[paciente.id] ?? periodoFiltro;
+                          const periodsToRender: RoutinePeriod[] =
+                            activePer === "todos" ? ["manha", "tarde", "noite", "geral"] : [activePer];
+
+                          return (
+                            <div className="space-y-6">
+                              {periodsToRender.map((perKey) => {
+                                const perConfig = {
+                                  manha: { label: "☀️ Manhã", horario: "06:00 - 12:00", bg: "bg-amber-50/50 border-amber-200/70 text-amber-900" },
+                                  tarde: { label: "🌤️ Tarde", horario: "12:00 - 18:00", bg: "bg-sky-50/50 border-sky-200/70 text-sky-900" },
+                                  noite: { label: "🌙 Noite", horario: "18:00 - 23:00", bg: "bg-indigo-50/50 border-indigo-200/70 text-indigo-900" },
+                                  geral: { label: "📋 Geral & Alertas", horario: "A qualquer momento", bg: "bg-rose-50/50 border-rose-200/70 text-rose-900" },
+                                }[perKey];
+
+                                const itemsOfPeriod = getAtividadesPorPeriodo(perKey);
+
+                                return (
+                                  <div key={perKey} className="space-y-3">
+                                    {activePer === "todos" && (
+                                      <div className={`flex items-center justify-between gap-2 px-4 py-2 rounded-2xl border ${perConfig.bg}`}>
+                                        <span className="text-xs font-black uppercase tracking-wider">{perConfig.label}</span>
+                                        <span className="text-[11px] font-bold opacity-75">{perConfig.horario}</span>
+                                      </div>
+                                    )}
+
+                                    <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+                                      {itemsOfPeriod.map((activityConfig) => {
+                                        const tipo = activityConfig.id as ActivityType;
+                                        const draftItem = draft.atividades[tipo] || { status: "", detail: "" };
+                                        const logSalvo = mapaLogsHoje[tipo];
+
+                                        const savedInfo = logSalvo
+                                          ? {
+                                              status: logSalvo.status,
+                                              detalhe: logSalvo.detalhe,
+                                            }
+                                          : null;
+
+                                        const savingSingle = savingSingleKey === `${paciente.id}_${tipo}`;
+
+                                        return (
+                                          <ActivitySection
+                                            key={tipo}
+                                            tipo={tipo}
+                                            selectedStatus={draftItem.status}
+                                            onOptionClick={(status: string) =>
+                                              atualizarDraft(paciente.id, tipo, "status", status)
+                                            }
+                                            detailValue={draftItem.detail}
+                                            onDetailChange={(value: string) =>
+                                              atualizarDraft(paciente.id, tipo, "detail", value)
+                                            }
+                                            savedInfo={savedInfo}
+                                            onSaveSingle={() => salvarItemIndividual(paciente, tipo)}
+                                            savingSingle={savingSingle}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
 
                         {/* Observação Geral e Conclusão de Turno em Lote */}
                         <div className="rounded-3xl border border-slate-200/80 bg-white p-4 md:p-6 shadow-sm">
